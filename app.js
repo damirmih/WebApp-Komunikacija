@@ -248,23 +248,48 @@ function renderTask(date, t, i, journal, num) {
 
 function viewCalendar() {
   const today = isoToday();
+  const settings = store.get("settings", "main") ?? {};
   const months = [[2026, 9], [2026, 10], [2026, 11]];
-  $main.innerHTML = `<div class="pagehead"><div class="kicker">15. oktobar – 31. decembar 2026</div><h1>Kalendar</h1></div><div class="months">` +
-    months.map(([y, m]) => {
-      const first = new Date(y, m, 1); const lead = (first.getDay() + 6) % 7; const n = new Date(y, m + 1, 0).getDate();
-      let cells = "";
-      for (let i = 0; i < lead; i++) cells += `<a class="day out"></a>`;
-      for (let d = 1; d <= n; d++) {
-        const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-        const day = byDate.get(iso);
-        if (!day) { cells += `<a class="day out"></a>`; continue; }
+  const monthHtml = months.map(([y, m]) => {
+    const first = new Date(y, m, 1); const lead = (first.getDay() + 6) % 7; const n = new Date(y, m + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < lead; i++) cells.push(null);
+    for (let d = 1; d <= n; d++) cells.push(`${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+    while (cells.length % 7) cells.push(null);
+    let rows = "", mDone = 0, mDays = 0;
+    for (let r = 0; r < cells.length; r += 7) {
+      const week = cells.slice(r, r + 7);
+      const wk = week.map((iso) => iso && byDate.get(iso)?.week).find(Boolean);
+      rows += `<div class="wk">${wk ? `<a href="#/nedelja/${wk}" title="${esc(weekById.get(wk).title)}">${wk}</a>` : ""}</div>`;
+      rows += week.map((iso) => {
+        const day = iso && byDate.get(iso);
+        if (!day) return `<div class="day out"></div>`;
         const st = dayStats(day);
-        const cls = ["day", iso === today ? "today" : "", iso < today ? "past" : iso > today ? "future" : "", day.checkpoint ? "cp" : "", st.pct === 100 ? "full" : ""].join(" ");
-        cells += `<a class="${cls}" href="#/dan/${iso}" style="--o:${(st.pct / 100).toFixed(2)}" title="${st.nd}/${st.n}"><span class="pct"></span><span class="n">${d}</span></a>`;
-      }
-      return `<section class="month"><h2>${MONTHS[m][0].toUpperCase() + MONTHS[m].slice(1)}</h2><div class="cal">${["P", "U", "S", "Č", "P", "S", "N"].map((x) => `<div class="dow">${x}</div>`).join("")}${cells}</div></section>`;
-    }).join("") + `</div>` +
-    `<div class="legend"><span><i style="background:var(--ok)"></i>sve urađeno</span><span><i style="background:var(--ok-soft)"></i>delimično</span><span><i style="background:var(--accent)"></i>checkpoint</span></div>`;
+        if (iso <= today) { mDays++; if (st.n && st.nd === st.n) mDone++; }
+        const minPct = st.min ? Math.round((st.mind / st.min) * 100) : 0;
+        const cls = ["day", iso === today ? "today" : "", iso > today ? "future" : "", day.checkpoint ? "cp" : "", settings.polufinale === iso || settings.finale === iso ? "event" : ""].join(" ");
+        return `<a class="${cls}" href="#/dan/${iso}" title="${fmtLong(iso)} · ${st.nd}/${st.n} zadataka · ${st.mind}/${st.min} min"><div class="fit mini" style="--o:${st.pct};--i:${minPct}"><span>${parse(iso).getDate()}</span></div></a>`;
+      }).join("");
+    }
+    return `<section class="month card"><div class="row between" style="margin-bottom:10px"><h2>${MONTHS[m][0].toUpperCase() + MONTHS[m].slice(1)}</h2><span class="chip">${mDone}/${mDays} dana 100 %</span></div><div class="cal"><div class="wk"></div>${["P", "U", "S", "Č", "P", "S", "N"].map((x) => `<div class="dow">${x}</div>`).join("")}${rows}</div></section>`;
+  }).join("");
+
+  const key = [
+    ["2026-10-15", "Baseline snimci", "ph-flag"], ["2026-11-01", "Checkpoint #1", "ph-flag-checkered"], ["2026-12-01", "Checkpoint #2", "ph-flag-checkered"], ["2026-12-31", "Završni checkpoint", "ph-trophy"],
+    settings.polufinale && [settings.polufinale, "Polufinale InnovNation", "ph-microphone-stage"], settings.finale && [settings.finale, "Finale InnovNation", "ph-microphone-stage"],
+  ].filter(Boolean).sort((a, b) => a[0].localeCompare(b[0]));
+  const keyHtml = key.map(([iso, label, icon]) => {
+    const diff = Math.round((parse(iso) - parse(today)) / 86400000);
+    const when = diff === 0 ? "danas" : diff > 0 ? `za ${diff} dana` : `pre ${-diff} dana`;
+    return `<a class="key ${diff < 0 ? "past" : ""} ${diff === 0 ? "now" : ""}" href="#/dan/${iso}"><i class="ph ${icon}"></i><div><b>${esc(label)}</b><span>${fmtLong(iso)} · ${when}</span></div></a>`;
+  }).join("");
+
+  $main.innerHTML = `
+    <div class="pagehead"><div class="kicker">15. oktobar – 31. decembar 2026 · ${PLAN.days.length} dana</div><h1>Kalendar</h1></div>
+    <div class="months">${monthHtml}</div>
+    <div class="legend"><span><i class="fit mini" style="--o:100;--i:100;display:inline-grid;vertical-align:middle;margin-right:6px"></i>spoljni prsten zadaci, unutrašnji minuti</span><span><i style="background:var(--accent)"></i>checkpoint</span><span><i style="outline:2px solid var(--accent);outline-offset:-2px;background:transparent"></i>danas</span></div>
+    <section style="margin-top:22px"><h3 style="margin-bottom:10px">Ključni datumi</h3><div class="keys">${keyHtml}</div>
+      ${!settings.polufinale ? `<p class="faint small" style="margin-top:10px">Polufinale i finale upiši u <a href="#/podesavanja">Podešavanjima</a> kad saznaš datume.</p>` : ""}</section>`;
 }
 
 function viewWeeks() {
