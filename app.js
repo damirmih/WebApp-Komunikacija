@@ -294,17 +294,21 @@ function viewCalendar() {
 
 function viewWeeks() {
   const today = isoToday();
-  $main.innerHTML = `<div class="pagehead"><div class="kicker">12 nedelja</div><h1>Nedelje</h1></div><div class="weeklist">` +
-    PLAN.weeks.map((w) => {
-      const days = PLAN.days.filter((d) => d.week === w.id);
-      const agg = days.reduce((a, d) => { const s = dayStats(d); a.n += s.n; a.nd += s.nd; return a; }, { n: 0, nd: 0 });
-      const pct = agg.n ? Math.round((agg.nd / agg.n) * 100) : 0;
-      const cur = today >= w.from_ && today <= w.to;
-      return `<a class="weekrow" href="#/nedelja/${w.id}" ${cur ? 'style="border-color:var(--accent)"' : ""}>
-        <div class="id">${w.id}</div>
-        <div><div class="t">${esc(w.title)}</div><div class="s">${fmtShort(w.from_)} – ${fmtShort(w.to)} · nivo ${w.level}${w.checkpoint ? " · " + esc(w.checkpoint) : ""}</div><div class="bar" style="margin-top:8px"><i style="--w:${pct}%"></i></div></div>
-        <div class="mono small muted">${pct}%</div></a>`;
-    }).join("") + `</div>`;
+  const cards = PLAN.weeks.map((w) => {
+    const days = PLAN.days.filter((d) => d.week === w.id);
+    const agg = days.reduce((a, d) => { const s = dayStats(d); a.n += s.n; a.nd += s.nd; a.min += s.min; a.mind += s.mind; return a; }, { n: 0, nd: 0, min: 0, mind: 0 });
+    const pct = agg.n ? Math.round((agg.nd / agg.n) * 100) : 0;
+    const minPct = agg.min ? Math.round((agg.mind / agg.min) * 100) : 0;
+    const cur = today >= w.from_ && today <= w.to;
+    const state = cur ? "cur" : today > w.to ? "past" : "future";
+    return `<a class="wcard ${state}" href="#/nedelja/${w.id}">
+      <div class="wc-top"><span class="wc-id">${w.id}</span><div class="fit mini" style="--o:${pct};--i:${minPct}"><span>${pct}</span></div></div>
+      <div class="wc-title">${esc(w.title)}</div>
+      <div class="wc-theme">${esc(w.theme)}</div>
+      <div class="wc-meta"><span>${fmtShort(w.from_)} – ${fmtShort(w.to)}</span><span class="diff" title="izazov nivo ${w.level}">${[4, 5, 6, 7, 8, 9, 10].map((n) => `<b class="${n <= w.level ? "on" : ""}"></b>`).join("")}</span>${w.checkpoint ? `<span class="chip accent"><i class="ph ph-flag-checkered"></i>${esc(w.checkpoint.replace(/\s*\(.*\)/, ""))}</span>` : ""}${w.note ? `<span class="chip" title="${esc(w.note)}"><i class="ph ph-microphone-stage"></i>takmičenje?</span>` : ""}</div>
+    </a>`;
+  }).join("");
+  $main.innerHTML = `<div class="pagehead"><div class="kicker">12 nedelja · 15. 10. – 31. 12.</div><h1>Nedelje</h1></div><div class="wgrid">${cards}</div>`;
 }
 
 function viewWeek(id) {
@@ -313,24 +317,40 @@ function viewWeek(id) {
   const days = PLAN.days.filter((d) => d.week === w.id);
   const idx = PLAN.weeks.findIndex((x) => x.id === w.id);
   const prev = PLAN.weeks[idx - 1], next = PLAN.weeks[idx + 1];
+  const agg = days.reduce((a, d) => { const s = dayStats(d); a.n += s.n; a.nd += s.nd; a.min += s.min; a.mind += s.mind; return a; }, { n: 0, nd: 0, min: 0, mind: 0 });
+  const pct = agg.n ? Math.round((agg.nd / agg.n) * 100) : 0;
   const vids = w.videos.map((v) => { const [t, u] = v.split(" | "); return `<a href="https://${esc(u?.trim())}" target="_blank" rel="noopener"><i class="ph ph-play-circle"></i><span>${esc(t)}</span></a>`; }).join("");
+  const rings = days.map((d) => { const s = dayStats(d); const minPct = s.min ? Math.round((s.mind / s.min) * 100) : 0; return `<a href="#/dan/${d.date}" class="${d.date === today ? "today" : ""} ${d.date > today ? "future" : ""}"><div class="fit" style="--o:${s.pct};--i:${minPct}"><span>${parse(d.date).getDate()}</span></div><span>${d.dow}</span></a>`; }).join("");
+  const dayRows = days.map((d) => {
+    const s = dayStats(d); const g = goalTask(d); const ch = d.tasks.find((t) => t.slot === "izazov");
+    return `<a class="drow ${d.date === today ? "today" : ""}" href="#/dan/${d.date}">
+      <div class="dr-day"><b>${d.dow}</b><span>${fmtShort(d.date)}</span></div>
+      <div class="dr-main"><b>${g ? esc(g.t.name) : ""}</b>${ch ? `<span><i class="ph ph-fire"></i> ${esc(ch.name)}</span>` : ""}</div>
+      <div class="dr-right"><span class="mono small muted">${s.nd}/${s.n} · ${s.min}′</span><div class="bar"><i style="--w:${s.pct}%"></i></div></div>
+    </a>`;
+  }).join("");
   $main.innerHTML = `
     <div class="daynav">
       <a class="iconbtn" href="${prev ? "#/nedelja/" + prev.id : "#/nedelje"}" aria-label="Prethodna nedelja"><i class="ph ph-caret-left"></i></a>
-      <div class="title"><h1>${w.id} · ${esc(w.title)}</h1><div class="sub">${fmtShort(w.from_)} – ${fmtShort(w.to)} · radni dan ${w.budgetWeekday} min · izazov nivo ${w.level}</div></div>
+      <div class="title"><h1>${w.id} · ${esc(w.title)}</h1><div class="sub">${fmtShort(w.from_)} – ${fmtShort(w.to)} · radni dan ${w.budgetWeekday} min · izazov nivo ${w.level} · ${pct}% urađeno</div></div>
       <a class="iconbtn" href="${next ? "#/nedelja/" + next.id : "#/nedelje"}" aria-label="Sledeća nedelja"><i class="ph ph-caret-right"></i></a>
     </div>
-    <div class="stack">
-      <div class="card stack"><h2>${esc(w.theme)}</h2><p class="muted">${esc(w.why)}</p></div>
-      <div class="callout"><b>${esc(w.rule)}</b></div>
-      ${w.note ? `<div class="callout" style="border-color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)">${esc(w.note)}</div>` : ""}
-      ${w.checkpoint ? `<div class="chip ok" style="justify-self:start"><i class="ph ph-flag-checkered"></i> ${esc(w.checkpoint)}</div>` : ""}
-      <div class="days7">${days.map((d) => { const s = dayStats(d); return `<a href="#/dan/${d.date}" class="${d.date === today ? "today" : ""}"><span>${d.dow}</span><div class="ring" style="--p:${s.pct}"><span>${s.pct}</span></div><span class="faint">${parse(d.date).getDate()}.</span></a>`; }).join("")}</div>
-      <div class="card stack"><h3>Dnevna rutina ove nedelje</h3>
-        <p class="small"><b>Glas:</b> ${esc(w.voice.join(" · ") || "u okviru pitcha")}</p>
-        <p class="small"><b>Telo:</b> ${esc(w.body.join(" · ") || "pravilo nedelje važi ceo dan")}</p></div>
-      ${vids ? `<div><h3 style="margin-bottom:8px">Video nedelje</h3><div class="videos">${vids}</div></div>` : ""}
-    </div>`;
+    <div class="rings">${rings}</div>
+    ${w.note ? `<div class="card" style="border-color:rgba(240,168,75,.35);margin-bottom:14px"><div class="row" style="gap:12px"><i class="ph ph-microphone-stage" style="font-size:22px;color:var(--accent)"></i><p class="small">${esc(w.note)}</p></div></div>` : ""}
+    <div class="wcols">
+      <section class="card stack" style="gap:14px">
+        <div><h2>${esc(w.theme)}</h2><p class="muted" style="margin-top:8px;line-height:1.55">${esc(w.why)}</p></div>
+        <div class="callout">${esc(w.rule)}</div>
+        ${w.checkpoint ? `<div class="chip accent" style="justify-self:start"><i class="ph ph-flag-checkered"></i> ${esc(w.checkpoint)}</div>` : ""}
+      </section>
+      <section class="stack">
+        <div class="card stack" style="gap:8px"><h3>Dnevna rutina</h3>
+          <p class="small"><i class="ph ph-microphone" style="color:var(--accent)"></i> <b>Glas:</b> ${esc(w.voice.join(" · ") || "u okviru pitcha")}</p>
+          <p class="small"><i class="ph ph-person-simple" style="color:var(--accent)"></i> <b>Telo:</b> ${esc(w.body.join(" · ") || "pravilo nedelje važi ceo dan")}</p></div>
+        ${vids ? `<div class="card stack" style="gap:10px"><h3>Video nedelje</h3><div class="videos">${vids}</div></div>` : ""}
+      </section>
+    </div>
+    <section style="margin-top:14px"><h3 style="margin-bottom:10px">Dan po dan</h3><div class="drows">${dayRows}</div></section>`;
 }
 
 function streak() {
