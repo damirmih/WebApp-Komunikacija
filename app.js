@@ -112,26 +112,35 @@ function viewToday(date) {
   }).join("");
 
   let num = 0;
+  const dow = DOWS[(parse(date).getDay() + 6) % 7];
+  const title = date === today ? "Danas" : dow[0].toUpperCase() + dow.slice(1);
+  const minPctDay = st.min ? Math.round((st.mind / st.min) * 100) : 0;
   $main.innerHTML = `
     <header class="hero">
-      <div class="ghost" aria-hidden="true">${w.id}</div>
-      <div>
-        <div class="kick">${fmtLong(date)} · dan ${PLAN.days.indexOf(day) + 1} od ${PLAN.days.length}</div>
-        <h1>${date === today ? "Danas" : DOWS[(parse(date).getDay() + 6) % 7][0].toUpperCase() + DOWS[(parse(date).getDay() + 6) % 7].slice(1)}</h1>
-        <a class="wk" href="#/nedelja/${w.id}"><i class="ph ph-fire"></i>${w.id} · ${esc(w.title)}</a>
+      <div class="copy">
+        <div class="kick">${fmtLong(date)} · dan ${PLAN.days.indexOf(day) + 1} od ${PLAN.days.length} · <a href="#/nedelja/${w.id}">${w.id}</a></div>
+        <h1>${title} vežbaš<br><em>${esc(w.title.replace(/^Kostur \d: /, "").toLowerCase())}</em></h1>
+        <p class="lead">${esc(w.theme)}</p>
+        ${goal ? `<button class="goal" data-select="${goal.i}"><i class="ph ph-target"></i><span><span class="l">Cilj dana:</span> ${esc(goal.t.name)}</span><span class="m">${goal.t.min ? goal.t.min + " min" : ""}</span></button>` : ""}
+        <div class="nav">
+          <a class="iconbtn" href="#/dan/${addDays(date, -1)}" aria-label="Prethodni dan"><i class="ph ph-caret-left" aria-hidden="true"></i></a>
+          ${date !== today ? `<a class="btn sm" href="#/danas">Danas</a>` : `<span class="faint small">prethodni / sledeći dan</span>`}
+          <a class="iconbtn" href="#/dan/${addDays(date, 1)}" aria-label="Sledeći dan"><i class="ph ph-caret-right" aria-hidden="true"></i></a>
+        </div>
       </div>
-      <div class="nav">
-        <a class="iconbtn" href="#/dan/${addDays(date, -1)}" aria-label="Prethodni dan"><i class="ph ph-caret-left"></i></a>
-        ${date !== today ? `<a class="btn sm" href="#/danas">Danas</a>` : ""}
-        <a class="iconbtn" href="#/dan/${addDays(date, 1)}" aria-label="Sledeći dan"><i class="ph ph-caret-right"></i></a>
-      </div>
+      <figure class="arch" aria-hidden="true"><div class="mic"></div><div class="lbl">${w.id} · ${esc(w.title)}</div></figure>
     </header>
-    ${eventNote.map((n) => `<div class="callout" style="margin-bottom:12px">${esc(n)}</div>`).join("")}
-    <div class="today-top">
-      ${goal ? `<button class="goal" data-select="${goal.i}"><i class="ph ph-target"></i><span><span class="l">Cilj dana:</span> ${esc(goal.t.name)}</span><span class="m">${goal.t.min ? goal.t.min + " min" : ""}</span></button>` : ""}
-      <div class="segbar"><div class="segs">${segs}</div><div class="lbl"><span>${st.nd}/${st.n} zadataka</span><span>${st.mind}/${st.min} min · ${st.pct}%</span></div></div>
-    </div>
-    <div class="rings">${rings}</div>
+    ${eventNote.map((n) => `<div class="card mist"><p class="callout b">${esc(n)}</p></div>`).join("")}
+    <section class="band">
+      <div>
+        <div class="rule ${w.rule.length > 110 ? "long" : ""}"><small>Pravilo nedelje</small>${esc(w.rule.replace(/^Pravilo nedelje:\s*/i, "").replace(/^Pravilo:\s*/i, ""))}</div>
+        <div class="stats-row"><div><b>${st.mind}</b><span>od ${st.min} min<br>danas</span></div><div><b>${streak()}</b><span>dana<br>zaredom</span></div><div><b>${st.nd}</b><span>od ${st.n}<br>zadataka</span></div></div>
+      </div>
+      <div>
+        <div class="segbar"><div class="segs">${segs}</div><div class="lbl"><span>${st.nd}/${st.n} zadataka</span><span>${st.mind}/${st.min} min · ${st.pct}%</span></div></div>
+        <div class="rings">${rings}</div>
+      </div>
+    </section>
     <div class="today-grid">
       <div class="tasks">
         ${SLOT_ORDER.filter((s) => groups[s]).map((s) => `
@@ -140,7 +149,7 @@ function viewToday(date) {
       </div>
       <aside class="detail">${renderDetail(date, journal)}</aside>
     </div>
-    <p class="faint small" style="margin-top:18px">${esc(w.rule)}</p>`;
+  `;
 
   bindToday(date, journal);
   animateRings();
@@ -349,16 +358,16 @@ function viewWeek(id) {
   }).join("");
   $main.innerHTML = `
     <div class="daynav">
-      <a class="iconbtn" href="${prev ? "#/nedelja/" + prev.id : "#/nedelje"}" aria-label="Prethodna nedelja"><i class="ph ph-caret-left"></i></a>
+      <a class="iconbtn" href="${prev ? "#/nedelja/" + prev.id : "#/nedelje"}" aria-label="Prethodna nedelja"><i class="ph ph-caret-left" aria-hidden="true"></i></a>
       <div class="title"><h1>${w.id} · ${esc(w.title)}</h1><div class="sub">${fmtShort(w.from_)} – ${fmtShort(w.to)} · radni dan ${w.budgetWeekday} min · izazov nivo ${w.level} · ${pct}% urađeno</div></div>
-      <a class="iconbtn" href="${next ? "#/nedelja/" + next.id : "#/nedelje"}" aria-label="Sledeća nedelja"><i class="ph ph-caret-right"></i></a>
+      <a class="iconbtn" href="${next ? "#/nedelja/" + next.id : "#/nedelje"}" aria-label="Sledeća nedelja"><i class="ph ph-caret-right" aria-hidden="true"></i></a>
     </div>
     <div class="rings">${rings}</div>
     ${w.note ? `<div class="card" style="border-color:rgba(240,168,75,.35);margin-bottom:14px"><div class="row" style="gap:12px"><i class="ph ph-microphone-stage" style="font-size:22px;color:var(--accent)"></i><p class="small">${esc(w.note)}</p></div></div>` : ""}
     <div class="wcols">
       <section class="card stack" style="gap:14px">
         <div><h2>${esc(w.theme)}</h2><p class="muted" style="margin-top:8px;line-height:1.55">${esc(w.why)}</p></div>
-        <div class="callout">${esc(w.rule)}</div>
+        <p class="callout b">${esc(w.rule)}</p>
         ${w.checkpoint ? `<div class="chip accent" style="justify-self:start"><i class="ph ph-flag-checkered"></i> ${esc(w.checkpoint)}</div>` : ""}
       </section>
       <section class="stack">
@@ -449,7 +458,7 @@ function viewProgress() {
     <div class="prog-cols" style="margin-top:14px">
       <section class="card"><h3 style="margin-bottom:4px">Checkpointi</h3><p class="small muted" style="margin-bottom:10px">Isti snimci, iste brojke. Baseline od 15. 10. je upisan; ostalo popunjavaš posle analize.</p>
         <div class="tablewrap"><table class="metrics"><thead><tr><th>Merilo</th>${CHECKPOINTS.map((c) => `<th>${fmtShort(c)}</th>`).join("")}</tr></thead><tbody>
-          ${METRICS.map(([k, l]) => `<tr><th>${l}</th>${CHECKPOINTS.map((c, ci) => `<td><input data-metric="${c}|${k}" value="${esc(ci === 0 ? (metrics[c]?.[k] ?? BASE[k]) : metrics[c]?.[k])}" placeholder="–"></td>`).join("")}</tr>`).join("")}
+          ${METRICS.map(([k, l]) => `<tr><th>${l}</th>${CHECKPOINTS.map((c, ci) => `<td><input data-metric="${c}|${k}" aria-label="${l}, ${fmtShort(c)}" autocomplete="off" value="${esc(ci === 0 ? (metrics[c]?.[k] ?? BASE[k]) : metrics[c]?.[k])}" placeholder="–"></td>`).join("")}</tr>`).join("")}
         </tbody></table></div>
       </section>
       <section class="card"><h3 style="margin-bottom:8px">Subotnji benchmark</h3>
@@ -507,7 +516,7 @@ function viewChallenges() {
   $main.innerHTML = `
     <div class="pagehead"><div class="kicker">Lestvica 4–10 · ${totalDone} od ${totalItems} izazova · tekući nivo ${curWeek.level} (${curWeek.id})</div><h1>Izazovi</h1></div>
     <div class="stepper">${levels.map((l) => `<a href="#lvl-${l.lvl}" class="step ${l.state}"><div class="fit" style="--o:${l.pct};--i:${Math.min(100, l.reps * 100 / (l.items.length * 3))}"><span>${l.lvl}</span></div><span>${l.d}/${l.items.length}</span></a>`).join("")}</div>
-    <div class="callout" style="margin:18px 0 20px">Pre: zapiši predviđanje. Posle: 3 pitanja. Ako dobiješ „ne“, pitaj „zašto?“. Nivo se osvaja kad isti tip uradiš 3 puta bez većeg otpora.</div>
+    <p class="callout b" style="margin:18px 0 20px;font-size:22px">Pre: zapiši predviđanje. Posle: 3 pitanja. Ako dobiješ „ne“, pitaj „zašto?“. Nivo se osvaja kad isti tip uradiš 3 puta bez većeg otpora.</p>
     <div class="chcols">
       <div class="ladder">${levels.map((l) => `<section class="lvl ${l.state}" id="lvl-${l.lvl}">
         <h3><span>Nivo ${l.lvl}${l.state === "cur" ? ` <span class="chip accent">ova nedelja</span>` : l.lvl === 10 ? ` <span class="chip">decembar</span>` : ""}</span><span class="chip ${l.d === l.items.length ? "ok" : ""}">${l.d}/${l.items.length}</span></h3>
@@ -545,7 +554,7 @@ function viewExercises() {
     </details>`; }).join("")}</div>`;
   };
   $main.innerHTML = `<div class="pagehead"><div class="kicker">${ex.length} vežbi iz istraživanja · klik otvara uputstvo</div><h1>Vežbe</h1></div>
-    <div class="search"><div class="row" style="gap:8px"><i class="ph ph-magnifying-glass" style="font-size:20px;color:var(--text-3)"></i><input type="search" id="q" placeholder="Pretraži: slamčica, PREP, žiri, pauza…" value="${esc(exFilter.q)}"></div>
+    <div class="search"><div class="row" style="gap:8px"><i class="ph ph-magnifying-glass" style="font-size:20px;color:var(--text-3)"></i><input type="search" id="q" aria-label="Pretraga vežbi" autocomplete="off" spellcheck="false" placeholder="Pretraži: slamčica, PREP, žiri, pauza…" value="${esc(exFilter.q)}"></div>
       <div class="filters">${[["", "Sve"], ...slots.map((s) => [s, SLOT[s].label])].map(([v, l]) => `<button class="chip ${exFilter.slot === v ? "accent" : ""}" data-slot="${v}">${l}</button>`).join("")}</div></div>
     <div id="exlist">${render()}</div>`;
   const list = document.getElementById("exlist");
@@ -577,29 +586,25 @@ function viewSettings() {
   const s = store.get("settings", "main") ?? {};
   const sync = store.sync();
   const user = store.currentUser();
-  let theme = ""; try { theme = localStorage.getItem("komunikacija.theme") || ""; } catch {}
   const syncCard = sync.status === "local"
     ? `<div class="sync-state"><i class="ph ph-cloud-slash"></i><div><b>Samo na ovom uređaju</b><span>Supabase nije podešen (config.js).</span></div></div>`
     : user
       ? `<div class="sync-state on"><i class="ph ph-cloud-check"></i><div><b>${esc(user.email)}</b><span>${sync.lastSync ? "Sinhronizovano " + new Date(sync.lastSync).toLocaleString("sr-RS") : "Povezano"}${store.pendingCount() ? ` · čeka ${store.pendingCount()} promena` : ""}</span>${sync.error ? `<span style="color:var(--warn)">${esc(sync.error)}</span>` : ""}</div></div><div class="row" style="margin-top:12px"><button class="btn sm" id="out"><i class="ph ph-sign-out"></i>Odjavi se</button></div>`
       : `<div class="sync-state"><i class="ph ph-cloud"></i><div><b>Nisi prijavljen</b><span>Prijavi se jednom po uređaju da se progres čuva u bazi i deli između telefona i Maca.</span></div></div>
-        <form class="form" id="login"><label class="field"><span>Email</span><input name="email" type="email" autocomplete="username" required></label><label class="field"><span>Lozinka</span><input name="password" type="password" autocomplete="current-password" required></label><div class="actions"><button class="btn sm" type="button" id="signup">Napravi nalog</button><button class="btn primary sm" type="submit">Prijavi se</button></div><p class="faint small" id="loginmsg"></p></form>`;
+        <form class="form" id="login"><label class="field"><span>Email</span><input name="email" type="email" autocomplete="username" spellcheck="false" required></label><label class="field"><span>Lozinka</span><input name="password" type="password" autocomplete="current-password" required></label><div class="actions"><button class="btn sm" type="button" id="signup">Napravi nalog</button><button class="btn primary sm" type="submit">Prijavi se</button></div><p class="faint small" id="loginmsg"></p></form>`;
 
   $main.innerHTML = `<div class="pagehead"><div class="kicker">Nalog, datumi, izgled, podaci</div><h1>Podešavanja</h1></div><div class="setgrid">
     <section class="card stack"><h3><i class="ph ph-cloud-arrow-up"></i> Sinhronizacija</h3>${syncCard}</section>
     <section class="card stack"><h3><i class="ph ph-microphone-stage"></i> Datumi takmičenja</h3><p class="muted small">Kad saznaš, upiši. Tog dana Danas prikazuje ritual, a datumi se vide u Kalendaru.</p>
       <form class="form" id="dates"><div class="grid2"><label class="field"><span>Polufinale</span><input type="date" name="polufinale" value="${esc(s.polufinale)}"></label><label class="field"><span>Finale</span><input type="date" name="finale" value="${esc(s.finale)}"></label></div><div class="actions"><button class="btn primary sm" type="submit">Sačuvaj</button></div></form></section>
-    <section class="card stack"><h3><i class="ph ph-moon"></i> Izgled</h3><div class="seg">${[["", "Tamno"], ["light", "Svetlo"]].map(([v, l]) => `<button class="${theme === v ? "on" : ""}" data-theme="${v}">${l}</button>`).join("")}</div>
-      <p class="muted small">Na iPhone-u: Safari → Deli → <b>Add to Home Screen</b>, pa radi kao aplikacija bez trake browsera.</p></section>
     <section class="card stack"><h3><i class="ph ph-database"></i> Podaci</h3><p class="muted small">Progres, dnevnik, logovi izazova i merila. Izvoz je JSON koji možeš i meni da pošalješ.</p>
       <div class="row wrap"><button class="btn sm" id="export"><i class="ph ph-download-simple"></i>Izvezi JSON</button><label class="btn sm" for="import"><i class="ph ph-upload-simple"></i>Uvezi JSON</label><input id="import" type="file" accept="application/json" hidden><button class="btn sm" id="reset" style="color:var(--warn)"><i class="ph ph-trash"></i>Obriši lokalno</button></div></section>
-    <section class="card stack"><h3><i class="ph ph-info"></i> O planu</h3><p class="muted small">${esc(PLAN.meta.goal)}</p><a class="btn sm" href="#/plan" style="justify-self:start">Pročitaj više</a></section>
+    <section class="card stack"><h3><i class="ph ph-info"></i> O planu</h3><p class="muted small">${esc(PLAN.meta.goal)}</p><p class="muted small">Na iPhone-u: Safari → Deli → <b>Add to Home Screen</b>, pa radi kao aplikacija.</p><a class="btn sm" href="#/plan" style="justify-self:start">Pročitaj više</a></section>
   </div>`;
   document.getElementById("dates").addEventListener("submit", (e) => { e.preventDefault(); const d = Object.fromEntries(new FormData(e.target).entries()); store.set("settings", "main", { ...s, ...d }); toast("Sačuvano"); });
   document.getElementById("export").addEventListener("click", () => { const b = new Blob([store.exportJSON()], { type: "application/json" }); const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(b), download: `komunikacija-${isoToday()}.json` }); a.click(); });
   document.getElementById("import").addEventListener("change", async (e) => { const f = e.target.files[0]; if (!f) return; store.importJSON(await f.text()); toast("Uvezeno"); });
   document.getElementById("reset").addEventListener("click", () => { if (confirm("Obrisati sav progres sa ovog uređaja? (Ako si sinhronizovan, vratiće se sa servera.)")) { store.resetLocal(); toast("Obrisano"); } });
-  $main.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => { const t = b.dataset.theme; if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; try { localStorage.setItem("komunikacija.theme", t); } catch {} $main.querySelectorAll("[data-theme]").forEach((x) => x.classList.toggle("on", x === b)); }));
   const login = document.getElementById("login");
   if (login) {
     const msg = document.getElementById("loginmsg");
@@ -632,7 +637,7 @@ function route() {
 }
 
 async function main() {
-  try { const t = localStorage.getItem("komunikacija.theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+  try { localStorage.removeItem("komunikacija.theme"); } catch {}
   const res = await fetch("data/plan.json");
   PLAN = await res.json();
   PLAN.days.forEach((d) => byDate.set(d.date, d));
