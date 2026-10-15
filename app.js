@@ -470,18 +470,37 @@ function renderBenchmarks(metrics) {
 }
 
 function viewChallenges() {
+  const today = isoToday();
   const done = store.all("done");
   const counts = {};
   PLAN.days.forEach((d) => d.tasks.forEach((t, i) => { if (t.id.startsWith("CH") && done[taskKey(d.date, t, i)]) counts[t.id] = (counts[t.id] || 0) + 1; }));
-  const logs = store.all("challenge");
-  const logCount = {}; Object.values(logs).forEach((l) => { if (l) logCount[l.ch] = (logCount[l.ch] || 0) + 1; });
-  $main.innerHTML = `<div class="pagehead"><div class="kicker">Lestvica 4–10 · nivo se osvaja kad isti tip uradiš 3 puta bez većeg otpora</div><h1>Izazovi</h1></div>
-    <div class="callout" style="margin-bottom:14px">Pre: zapiši predviđanje. Posle: 3 pitanja. Ako dobiješ „ne“, pitaj „zašto?“. Ostani u situaciji dok nervoza ne spadne.</div>
-    <div class="ladder">${Object.entries(PLAN.challenges).map(([lvl, items]) => {
-      const d = items.filter((it) => counts["CH" + it.n]).length;
-      return `<div class="lvl"><h3><span>Nivo ${lvl}</span><span class="chip ${d === items.length ? "ok" : ""}">${d}/${items.length}</span></h3>
-        ${items.map((it) => `<div class="item ${counts["CH" + it.n] ? "done" : ""}"><span class="n">#${it.n}</span><span>${esc(it.text)}<span class="faint small"> · ${esc(it.where)}</span></span><span class="cnt">${counts["CH" + it.n] || 0}×</span></div>`).join("")}</div>`;
-    }).join("")}</div>`;
+  const logs = Object.values(store.all("challenge")).filter(Boolean).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const curWeek = PLAN.weeks.find((w) => today >= w.from_ && today <= w.to) || PLAN.weeks[0];
+  const levels = Object.entries(PLAN.challenges).map(([lvl, items]) => {
+    const d = items.filter((it) => counts["CH" + it.n]).length;
+    const reps = items.reduce((a, it) => a + (counts["CH" + it.n] || 0), 0);
+    return { lvl: +lvl, items, d, reps, pct: Math.round((d / items.length) * 100), state: +lvl < curWeek.level ? "past" : +lvl === curWeek.level ? "cur" : "future" };
+  });
+  const totalDone = levels.reduce((a, l) => a + l.d, 0), totalItems = levels.reduce((a, l) => a + l.items.length, 0);
+  const chName = (id) => { for (const items of Object.values(PLAN.challenges)) { const it = items.find((x) => "CH" + x.n === id); if (it) return it.text; } return id; };
+
+  $main.innerHTML = `
+    <div class="pagehead"><div class="kicker">Lestvica 4–10 · ${totalDone} od ${totalItems} izazova · tekući nivo ${curWeek.level} (${curWeek.id})</div><h1>Izazovi</h1></div>
+    <div class="stepper">${levels.map((l) => `<a href="#lvl-${l.lvl}" class="step ${l.state}"><div class="fit" style="--o:${l.pct};--i:${Math.min(100, l.reps * 100 / (l.items.length * 3))}"><span>${l.lvl}</span></div><span>${l.d}/${l.items.length}</span></a>`).join("")}</div>
+    <div class="callout" style="margin:18px 0 20px">Pre: zapiši predviđanje. Posle: 3 pitanja. Ako dobiješ „ne“, pitaj „zašto?“. Nivo se osvaja kad isti tip uradiš 3 puta bez većeg otpora.</div>
+    <div class="chcols">
+      <div class="ladder">${levels.map((l) => `<section class="lvl ${l.state}" id="lvl-${l.lvl}">
+        <h3><span>Nivo ${l.lvl}${l.state === "cur" ? ` <span class="chip accent">ova nedelja</span>` : l.lvl === 10 ? ` <span class="chip">decembar</span>` : ""}</span><span class="chip ${l.d === l.items.length ? "ok" : ""}">${l.d}/${l.items.length}</span></h3>
+        ${l.items.map((it) => { const c = counts["CH" + it.n] || 0; return `<div class="item ${c ? "done" : ""} ${c >= 3 ? "mastered" : ""}"><span class="n">#${it.n}</span><div><div>${esc(it.text)}</div><span class="faint small"><i class="ph ph-map-pin"></i> ${esc(it.where)}</span></div><span class="cnt">${c ? c + "×" : ""}</span></div>`; }).join("")}
+      </section>`).join("")}</div>
+      <aside class="chside">
+        <div class="card stack" style="gap:10px"><h3>Poslednji logovi</h3>
+          ${logs.length ? logs.slice(0, 8).map((l) => `<div class="logrow"><div class="score ${+l.score >= 7 ? "good" : +l.score <= 4 ? "bad" : ""}">${esc(l.score || "–")}</div><div><b>${esc(chName(l.ch))}</b><span>${l.date ? fmtShort(l.date) : ""}${l.hardest ? " · " + esc(l.hardest) : ""}</span>${l.prediction ? `<span class="faint">pre: ${esc(l.prediction)}</span>` : ""}</div></div>`).join("") : `<p class="muted small">Još nema logova. Svaki izazov na strani Danas ima formu: predviđanje, ocena 1–10, najteži trenutak, sledeći put.</p>`}
+        </div>
+        ${logs.length ? `<div class="card" style="margin-top:12px"><h3 style="margin-bottom:6px">Predviđanje vs stvarnost</h3><p class="small muted">Prosek ${(logs.filter((l) => +l.score).reduce((a, l) => a + +l.score, 0) / Math.max(1, logs.filter((l) => +l.score).length)).toFixed(1)}/10. Iznad 5 znači da je bilo bolje nego što si mislio, a to je ceo trening.</p></div>` : ""}
+      </aside>
+    </div>`;
+  $main.querySelectorAll(".stepper a").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); document.getElementById(a.getAttribute("href").slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }); }));
 }
 
 function viewExercises() {
