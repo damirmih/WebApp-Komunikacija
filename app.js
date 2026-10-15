@@ -18,6 +18,7 @@ const SLOT = {
   pitch: { label: "Pitch", icon: "ph-presentation" }, checkpoint: { label: "Checkpoint", icon: "ph-flag-checkered" }, checkin: { label: "Check-in", icon: "ph-chat-circle-dots" },
   izazov: { label: "Izazov", icon: "ph-fire" }, refleksija: { label: "Dnevnik", icon: "ph-notebook" }, bus: { label: "Bus", icon: "ph-bus" },
 };
+const WEEK_ICON = { W0: "ph-compass", W1: "ph-microphone", W2: "ph-translate", W3: "ph-chats-circle", W4: "ph-lightning", W5: "ph-book-open", W6: "ph-presentation", W7: "ph-wrench", W8: "ph-snowflake", W9: "ph-trophy", W10: "ph-users-three", W11: "ph-flag-checkered" };
 const SLOT_ORDER = ["glas", "telo", "glavno", "pitch", "checkpoint", "checkin", "izazov", "refleksija", "bus"];
 const MONTHS = ["januar", "februar", "mart", "april", "maj", "jun", "jul", "avgust", "septembar", "oktobar", "novembar", "decembar"];
 const DOWS = ["ponedeljak", "utorak", "sreda", "četvrtak", "petak", "subota", "nedelja"];
@@ -36,6 +37,7 @@ const isCore = (t) => t.slot !== "bus" && t.slot !== "izazov";
 const cap = (s) => s[0].toUpperCase() + s.slice(1);
 const cleanRule = (r) => r.replace(/^Pravilo nedelje:\s*/i, "").replace(/^Pravilo:\s*/i, "");
 
+const buzz = (p) => { try { navigator.vibrate?.(p); } catch {} };
 function toast(msg) { $toast.textContent = msg; $toast.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => $toast.classList.remove("show"), 1800); }
 
 function dayStats(day) {
@@ -152,7 +154,7 @@ function viewWeek(id) {
   const vids = (w.videos || []).map((v) => { const [t, u] = v.split(" | "); return `<a class="btn sm" href="https://${esc((u || "").trim())}" target="_blank" rel="noopener"><i class="ph ph-play-circle" aria-hidden="true"></i>${esc(t.length > 48 ? t.slice(0, 48) + "…" : t)}</a>`; }).join("");
   $main.innerHTML = `
     <header class="lesson-head">
-      <div><div class="kick">${w.id} · ${fmtShort(w.from_)} – ${fmtShort(w.to)} · ${ws.pct} % urađeno</div><h1>${esc(w.title)}</h1><p class="muted" style="margin-top:8px">${esc(w.theme)}</p></div>
+      <div class="lesson-id"><div class="wicon"><i class="ph ${WEEK_ICON[w.id] || "ph-circle"}" aria-hidden="true"></i></div><div><div class="kick">${w.id} · ${fmtShort(w.from_)} – ${fmtShort(w.to)} · ${ws.pct} % urađeno</div><h1>${esc(w.title)}</h1><p class="muted" style="margin-top:8px">${esc(w.theme)}</p></div></div>
       <div class="nav"><a class="iconbtn" href="${prev ? "#/nedelja/" + prev.id : "#/kurs"}" aria-label="Prethodna nedelja"><i class="ph ph-caret-left" aria-hidden="true"></i></a><a class="btn sm" href="#/kurs">Kurs</a><a class="iconbtn" href="${next && weekUnlocked(next) ? "#/nedelja/" + next.id : "#/kurs"}" aria-label="Sledeća nedelja"><i class="ph ph-caret-right" aria-hidden="true"></i></a></div>
     </header>
     <div class="rule"><b>Pravilo nedelje.</b> ${esc(cleanRule(w.rule))}</div>
@@ -195,7 +197,7 @@ function viewToday(date) {
   let num = 0;
   $main.innerHTML = `
     <header class="lesson-head">
-      <div><div class="kick">${w.id} · ${esc(w.title)} · dan ${PLAN.days.indexOf(day) + 1} od ${PLAN.days.length}</div><h1>${date === today ? "Danas" : cap(dow)}, ${parse(date).getDate()}. ${MONTHS[parse(date).getMonth()]}</h1></div>
+      <div class="lesson-id"><div class="wicon"><i class="ph ${WEEK_ICON[w.id] || "ph-circle"}" aria-hidden="true"></i></div><div><div class="kick">${w.id} · ${esc(w.title)} · dan ${PLAN.days.indexOf(day) + 1} od ${PLAN.days.length}</div><h1>${date === today ? "Danas" : cap(dow)}, ${parse(date).getDate()}. ${MONTHS[parse(date).getMonth()]}</h1></div></div>
       <div class="nav"><a class="iconbtn" href="#/dan/${prevD}" aria-label="Prethodni dan"><i class="ph ph-caret-left" aria-hidden="true"></i></a>${date !== today ? `<a class="btn sm" href="#/danas">Danas</a>` : `<a class="btn sm" href="#/nedelja/${w.id}">${w.id}</a>`}${nextOk ? `<a class="iconbtn" href="#/dan/${nextD}" aria-label="Sledeći dan"><i class="ph ph-caret-right" aria-hidden="true"></i></a>` : `<span class="iconbtn" style="opacity:.3"><i class="ph ph-lock-simple" aria-hidden="true"></i></span>`}</div>
     </header>
     ${eventNote.map((n) => `<div class="rule"><b>${esc(n)}</b></div>`).join("")}
@@ -216,7 +218,7 @@ function bindToday(date, journal) {
     const t = byDate.get(d).tasks[+i]; const k = taskKey(d, t, +i);
     const now = !store.get("done", k);
     store.set("done", k, now ? { at: new Date().toISOString(), min: t.min } : null);
-    if (now && isCore(t)) { const s = dayStats(byDate.get(d)); if (s.pct === 100) toast("Dan završen. Svaka čast."); }
+    if (now && isCore(t)) { const s = dayStats(byDate.get(d)); buzz(s.pct === 100 ? [20, 60, 40] : 12); if (s.pct === 100) toast("Dan završen. Svaka čast."); } else buzz(8);
   }));
   $main.querySelectorAll("[data-select]").forEach((el) => el.addEventListener("click", () => {
     const i = +el.dataset.select;
@@ -428,14 +430,20 @@ window.addEventListener("scroll", () => { if (!scrollQ) { scrollQ = true; reques
 // ---------- router ----------
 const VIEWS = { kurs: viewCourse, danas: () => viewToday(), dan: (a) => viewToday(a), nedelja: (a) => viewWeek(a), izazovi: viewChallenges, vezbe: viewExercises, vise: viewMore, plan: viewAbout, podesavanja: viewSettings };
 function parseRoute() { const h = location.hash || "#/kurs"; const m = h.match(/^#\/([a-z]+)(?:\/([^/]+))?/); return { h, path: m ? m[1] : "kurs", arg: m ? m[2] : undefined }; }
-function route() {
+function paint() {
   const { h, path, arg } = parseRoute();
   renderNav(h);
   window.scrollTo(0, 0);
   (VIEWS[path] || viewCourse)(arg);
   setupReveal();
 }
+function route() {
+  if (document.startViewTransition && !reduceMq.matches && $main.children.length) { $main.classList.add("vt"); const t = document.startViewTransition(paint); t.ready.catch(() => {}); t.updateCallbackDone.catch(() => {}); t.finished.catch(() => {}).finally(() => $main.classList.remove("vt")); }
+  else paint();
+}
+let lastPct = null;
 function rerenderQuiet() {
+  lastPct = (() => { const b = $main.querySelector(".lesson-meta .bar > i"); return b ? parseInt(b.style.getPropertyValue("--w")) || 0 : null; })();
   const active = document.activeElement;
   if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
   const open = [...$main.querySelectorAll(".t-body:not([hidden])")].map((b) => b.closest(".task")?.querySelector(".t-name")?.textContent);
@@ -446,6 +454,7 @@ function rerenderQuiet() {
   $main.querySelectorAll(".task").forEach((t) => { if (open.includes(t.querySelector(".t-name")?.textContent)) { const b = t.querySelector(".t-body"); if (b) b.hidden = false; } });
   $main.querySelectorAll(":scope > *").forEach((el) => { el.style.animation = "none"; });
   $main.querySelectorAll(RV).forEach((el) => el.classList.add("rv-item", "in"));
+  const bar = $main.querySelector(".lesson-meta .bar > i"); if (bar && lastPct !== null) { const to = bar.style.getPropertyValue("--w"); bar.style.setProperty("--w", lastPct + "%"); requestAnimationFrame(() => requestAnimationFrame(() => bar.style.setProperty("--w", to))); }
   window.scrollTo(0, y);
 }
 
