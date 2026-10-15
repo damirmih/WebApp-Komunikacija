@@ -1,0 +1,14 @@
+{
+  "name": "Komunikacija · plan do Nove godine",
+  "short_name": "Komunikacija",
+  "start_url": "./#/danas",
+  "display": "standalone",
+  "background_color": "#111113",
+  "theme_color": "#111113",
+  "lang": "sr",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
