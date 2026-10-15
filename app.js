@@ -98,16 +98,20 @@ function renderNav(route) {
 }
 
 // ---------- KURS (mapa) ----------
+let openMonth = null; // koji mesec je raširen; podrazumevano onaj u kome je tekuća nedelja
 function viewCourse() {
   const today = isoToday();
   const cs = courseStats();
   const cur = PLAN.weeks.find((w) => today >= w.from_ && today <= w.to) || PLAN.weeks[0];
-  const months = MONTHS_DEF.map(([name, sub, ids]) => {
+  if (openMonth === null) openMonth = MONTHS_DEF.findIndex(([, , ids]) => ids.includes(cur.id));
+  const months = MONTHS_DEF.map(([name, sub, ids], mi) => {
     const weeks = ids.map((id) => weekById.get(id));
     const anyOpen = weeks.some((w) => weekUnlocked(w));
     const agg = weeks.reduce((a, w) => { const s = weekStats(w); a.n += s.n; a.nd += s.nd; return a; }, { n: 0, nd: 0 });
-    return `<section class="month ${anyOpen ? "" : "locked"}">
-      <div class="month-h"><div><h2>${name}</h2><span>${esc(sub)}</span></div><span>${fmtShort(weeks[0].from_)} – ${fmtShort(weeks.at(-1).to)} · ${agg.n ? Math.round(agg.nd / agg.n * 100) : 0} %</span></div>
+    const expanded = openMonth === mi;
+    return `<section class="month ${anyOpen ? "" : "locked"} ${expanded ? "expanded" : ""}">
+      <button class="month-h" data-month="${mi}" aria-expanded="${expanded}"><div><h2>${name}</h2><span>${esc(sub)}</span></div><span>${fmtShort(weeks[0].from_)} – ${fmtShort(weeks.at(-1).to)} · ${agg.n ? Math.round(agg.nd / agg.n * 100) : 0} %</span><i class="ph ph-caret-down caret" aria-hidden="true"></i></button>
+      <div class="month-body" ${expanded ? "" : "hidden"}>
       ${weeks.map((w) => {
         const st = weekState(w); const ws = weekStats(w);
         const inner = `<div class="wn">${w.id}</div><div class="wt"><b>${esc(w.title)}</b><span>${fmtShort(w.from_)} – ${fmtShort(w.to)} · izazov nivo ${w.level}${w.checkpoint ? " · " + esc(w.checkpoint.replace(/\s*\(.*\)/, "")) : ""}</span></div>` +
@@ -115,6 +119,7 @@ function viewCourse() {
         const days = st === "locked" ? "" : `<div class="days">${ws.days.map((d) => { const s = dayStats(d); const cls = ["day", s.n && s.nd === s.n ? "done" : s.nd ? "part" : "", d.date === today ? "today" : ""].join(" "); return `<a class="${cls}" href="#/dan/${d.date}" title="${fmtLong(d.date)} · ${s.nd}/${s.n}">${parse(d.date).getDate()}<small>${d.dow}</small></a>`; }).join("")}</div>`;
         return st === "locked" ? `<div class="week locked">${inner}</div>` : `<a class="week ${st} open" href="#/nedelja/${w.id}">${inner}</a>${days}`;
       }).join("")}
+      </div>
     </section>`;
   }).join("");
   $main.innerHTML = `
@@ -129,6 +134,11 @@ function viewCourse() {
     </header>
     <div class="months">${months}</div>
     <p class="faint small" style="margin-top:16px">Nedelja se otključava kad dođe njen ponedeljak i kad je prethodna bar ${UNLOCK_PCT} % urađena.</p>`;
+  $main.querySelectorAll("[data-month]").forEach((b) => b.addEventListener("click", () => {
+    const mi = +b.dataset.month;
+    openMonth = openMonth === mi ? -1 : mi;
+    $main.querySelectorAll(".month").forEach((m, i) => { const on = i === openMonth; m.classList.toggle("expanded", on); m.querySelector(".month-body").hidden = !on; m.querySelector(".month-h").setAttribute("aria-expanded", on); });
+  }));
 }
 
 // ---------- NEDELJA (pregled lekcija) ----------

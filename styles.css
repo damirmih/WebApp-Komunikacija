@@ -121,7 +121,14 @@ label.field { display: grid; gap: 6px; font: 600 13px/1.3 var(--font-head); colo
 .course-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
 .months { display: grid; gap: 16px; }
 .month { border-radius: var(--r-lg); background: var(--bg-2); border: 1px solid var(--line); overflow: hidden; }
-.month-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 18px; background: var(--olive); color: #fff; }
+.month-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 18px; background: var(--olive); color: #fff; width: 100%; border: 0; text-align: left; cursor: pointer; font: inherit; transition: filter var(--dur-base) ease-out; }
+.month-h:hover { filter: brightness(1.1); }
+.month-h .caret { font-size: 20px; flex: none; transition: transform var(--dur-base) var(--ease); }
+.month.expanded .month-h .caret { transform: rotate(180deg); }
+.month-h > span { margin-left: auto; }
+.month:not(.expanded) .month-h { background: var(--bg-3); }
+.month:not(.expanded) .month-h h2, .month:not(.expanded) .month-h span { color: var(--text-2); }
+.month-body[hidden] { display: none; }
 .month-h h2 { color: #fff; font-size: 18px; }
 .month-h span { font: 600 12.5px/1.3 var(--font-head); color: rgba(255, 255, 255, 0.85); white-space: nowrap; }
 .month.locked .month-h { background: var(--bg-3); } .month.locked .month-h h2, .month.locked .month-h span { color: var(--text-2); }
@@ -149,7 +156,7 @@ label.field { display: grid; gap: 6px; font: 600 13px/1.3 var(--font-head); colo
 @media (min-width: 900px) {
   .course-head { grid-template-columns: 1fr minmax(300px, 380px); align-items: end; }
   .course-head h1 { font-size: 46px; }
-  .months { grid-template-columns: repeat(3, 1fr); align-items: start; }
+  .months { max-width: 760px; }
   .days { padding-left: 18px; }
   .week .wr .bar { width: 70px; }
 }
