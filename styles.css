@@ -167,6 +167,11 @@ label.field { display: grid; gap: 6px; font: 600 13px/1.3 var(--font-head); colo
 .goal i { color: var(--brand); font-size: 22px; flex: none; }
 .goal .l { color: var(--brand); margin-right: 2px; }
 .goal .m { color: var(--ink-soft); font-weight: 600; margin-left: 6px; white-space: nowrap; }
+@media (max-width: 899px) {
+  .arch { aspect-ratio: 16 / 11; max-height: 260px; border-radius: 999px 999px var(--r-md) var(--r-md); }
+  .arch .mic { top: 28%; width: 30px; height: 42px; margin-left: -15px; }
+  .arch .mic::after { top: 38px; width: 11px; height: 110px; margin-left: -5.5px; }
+}
 @media (min-width: 900px) {
   .hero { grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: center; margin: 8px 0 30px; }
   .hero h1 { font-size: 64px; }
