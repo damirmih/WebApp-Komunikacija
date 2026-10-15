@@ -503,23 +503,36 @@ function viewChallenges() {
   $main.querySelectorAll(".stepper a").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); document.getElementById(a.getAttribute("href").slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }); }));
 }
 
+let exFilter = { q: "", slot: "" };
 function viewExercises() {
+  const today = isoToday();
   const ex = Object.values(PLAN.exercises);
-  const groups = {};
-  ex.forEach((e) => (groups[e.slot] ??= []).push(e));
-  const render = (q = "") => {
-    const ql = q.toLowerCase();
-    return SLOT_ORDER.filter((s) => groups[s]).map((s) => {
-      const list = groups[s].filter((e) => !ql || (e.name + e.how + e.id).toLowerCase().includes(ql));
-      if (!list.length) return "";
-      return `<section class="group"><div class="group-h"><i class="ph ${SLOT[s].icon}"></i>${SLOT[s].label} · ${list.length}</div>
-        <div class="card" style="padding:0 14px">${list.map((e) => `<details class="ex"><summary><span>${esc(e.name)}</span><span class="mono faint small">${e.id} · ${e.min}′ · ${e.diff}/5</span></summary><div class="body"><p style="color:var(--text)">${esc(e.how)}</p>${e.metric ? `<p><b>Merilo:</b> ${esc(e.metric)}</p>` : ""}${e.src ? `<p class="faint small">Izvor: research/${esc(e.src)}</p>` : ""}</div></details>`).join("")}</div></section>`;
-    }).join("");
+  const usage = {};
+  PLAN.days.forEach((d) => d.tasks.forEach((t) => { if (!t.id || !PLAN.exercises[t.id]) return; const u = (usage[t.id] ??= { count: 0, next: null }); u.count++; if (d.date >= today && !u.next) u.next = d.date; }));
+  const slots = SLOT_ORDER.filter((s) => ex.some((e) => e.slot === s));
+  const render = () => {
+    const ql = exFilter.q.toLowerCase();
+    const list = ex.filter((e) => (!exFilter.slot || e.slot === exFilter.slot) && (!ql || (e.name + " " + e.how + " " + e.id + " " + e.metric).toLowerCase().includes(ql)));
+    if (!list.length) return `<div class="empty"><i class="ph ph-magnifying-glass"></i>Nema vežbe za „${esc(exFilter.q)}“.</div>`;
+    return `<div class="exgrid">${list.map((e) => { const u = usage[e.id] || { count: 0 }; return `<details class="excard" ${e.id === exOpen ? "open" : ""} data-id="${e.id}">
+      <summary>
+        <div class="ex-top"><span class="chip"><i class="ph ${SLOT[e.slot].icon}"></i>${SLOT[e.slot].label}</span><span class="ex-id">${e.id}</span></div>
+        <div class="ex-name">${esc(e.name)}</div>
+        <div class="ex-meta"><span>${e.min ? e.min + " min" : "tokom dana"}</span><span class="diff">${[1, 2, 3, 4, 5].map((n) => `<b class="${n <= e.diff ? "on" : ""}"></b>`).join("")}</span><span>${u.count}× u planu${u.next ? " · sledeće " + fmtShort(u.next) : ""}</span></div>
+      </summary>
+      <div class="ex-body"><p>${esc(e.how)}</p>${e.metric ? `<div class="metric"><i class="ph ph-ruler"></i><span>Merilo: ${esc(e.metric)}</span></div>` : ""}${e.src ? `<p class="faint small" style="margin-top:8px">Izvor: research/${esc(e.src)}</p>` : ""}${u.next ? `<a class="btn sm" style="margin-top:12px" href="#/dan/${u.next}"><i class="ph ph-calendar-blank"></i>Otvori ${fmtShort(u.next)}</a>` : ""}</div>
+    </details>`; }).join("")}</div>`;
   };
-  $main.innerHTML = `<div class="pagehead"><div class="kicker">${ex.length} vežbi iz istraživanja</div><h1>Vežbe</h1></div>
-    <div class="search"><input type="search" id="q" placeholder="Pretraži (npr. slamčica, PREP, žiri)…"></div><div id="exlist">${render()}</div>`;
-  document.getElementById("q").addEventListener("input", (e) => { document.getElementById("exlist").innerHTML = render(e.target.value); });
+  $main.innerHTML = `<div class="pagehead"><div class="kicker">${ex.length} vežbi iz istraživanja · klik otvara uputstvo</div><h1>Vežbe</h1></div>
+    <div class="search"><div class="row" style="gap:8px"><i class="ph ph-magnifying-glass" style="font-size:20px;color:var(--text-3)"></i><input type="search" id="q" placeholder="Pretraži: slamčica, PREP, žiri, pauza…" value="${esc(exFilter.q)}"></div>
+      <div class="filters">${[["", "Sve"], ...slots.map((s) => [s, SLOT[s].label])].map(([v, l]) => `<button class="chip ${exFilter.slot === v ? "accent" : ""}" data-slot="${v}">${l}</button>`).join("")}</div></div>
+    <div id="exlist">${render()}</div>`;
+  const list = document.getElementById("exlist");
+  document.getElementById("q").addEventListener("input", (e) => { exFilter.q = e.target.value; list.innerHTML = render(); });
+  $main.querySelectorAll("[data-slot]").forEach((b) => b.addEventListener("click", () => { exFilter.slot = b.dataset.slot; $main.querySelectorAll("[data-slot]").forEach((x) => x.classList.toggle("accent", x === b)); list.innerHTML = render(); }));
+  list.addEventListener("toggle", (e) => { if (e.target.open) exOpen = e.target.dataset.id; }, true);
 }
+let exOpen = "";
 
 function viewMore() {
   $main.innerHTML = `<div class="pagehead"><h1>Više</h1></div><div class="weeklist">
@@ -543,23 +556,29 @@ function viewSettings() {
   const s = store.get("settings", "main") ?? {};
   const sync = store.sync();
   const user = store.currentUser();
-  $main.innerHTML = `<div class="pagehead"><h1>Podešavanja</h1></div><div class="stack">
-    <section class="card stack"><h2>Sinhronizacija</h2>
-      ${sync.status === "local" ? `<p class="muted small">Supabase nije podešen (config.js). Progres se čuva samo na ovom uređaju.</p>` :
-        user ? `<p class="small">Prijavljen kao <b>${esc(user.email)}</b>. ${sync.lastSync ? "Poslednja sinhronizacija " + new Date(sync.lastSync).toLocaleString("sr-RS") : ""}${store.pendingCount() ? ` · čeka ${store.pendingCount()} promena` : ""}</p>${sync.error ? `<p class="small" style="color:var(--warn)">${esc(sync.error)}</p>` : ""}<div><button class="btn sm" id="out">Odjavi se</button></div>` :
-        `<form class="form" id="login"><label class="field"><span>Email</span><input name="email" type="email" autocomplete="username" required></label><label class="field"><span>Lozinka</span><input name="password" type="password" autocomplete="current-password" required></label><div class="actions"><button class="btn sm" type="button" id="signup">Napravi nalog</button><button class="btn primary sm" type="submit">Prijavi se</button></div><p class="faint small" id="loginmsg"></p></form>`}
-    </section>
-    <section class="card stack"><h2>Datumi takmičenja</h2><p class="muted small">Kad saznaš, upiši. Na taj dan Danas prikazuje ritual, a nedelje W6/W9 treba pomeriti u planu.</p>
-      <form class="form" id="dates"><div class="grid2"><label class="field"><span>Polufinale</span><input type="date" name="polufinale" value="${esc(s.polufinale)}"></label><label class="field"><span>Finale</span><input type="date" name="finale" value="${esc(s.finale)}"></label></div><div class="actions"><button class="btn primary sm" type="submit">Sačuvaj</button></div></form>
-    </section>
-    <section class="card stack"><h2>Izgled</h2><div class="row wrap"><button class="btn sm" data-theme="">Tamno</button><button class="btn sm" data-theme="light">Svetlo</button></div></section>
-    <section class="card stack"><h2>Podaci</h2><div class="row wrap"><button class="btn sm" id="export">Izvezi JSON</button><label class="btn sm" for="import">Uvezi JSON</label><input id="import" type="file" accept="application/json" hidden><button class="btn sm" id="reset" style="color:var(--warn)">Obriši lokalno</button></div></section>
+  let theme = ""; try { theme = localStorage.getItem("komunikacija.theme") || ""; } catch {}
+  const syncCard = sync.status === "local"
+    ? `<div class="sync-state"><i class="ph ph-cloud-slash"></i><div><b>Samo na ovom uređaju</b><span>Supabase nije podešen (config.js).</span></div></div>`
+    : user
+      ? `<div class="sync-state on"><i class="ph ph-cloud-check"></i><div><b>${esc(user.email)}</b><span>${sync.lastSync ? "Sinhronizovano " + new Date(sync.lastSync).toLocaleString("sr-RS") : "Povezano"}${store.pendingCount() ? ` · čeka ${store.pendingCount()} promena` : ""}</span>${sync.error ? `<span style="color:var(--warn)">${esc(sync.error)}</span>` : ""}</div></div><div class="row" style="margin-top:12px"><button class="btn sm" id="out"><i class="ph ph-sign-out"></i>Odjavi se</button></div>`
+      : `<div class="sync-state"><i class="ph ph-cloud"></i><div><b>Nisi prijavljen</b><span>Prijavi se jednom po uređaju da se progres čuva u bazi i deli između telefona i Maca.</span></div></div>
+        <form class="form" id="login"><label class="field"><span>Email</span><input name="email" type="email" autocomplete="username" required></label><label class="field"><span>Lozinka</span><input name="password" type="password" autocomplete="current-password" required></label><div class="actions"><button class="btn sm" type="button" id="signup">Napravi nalog</button><button class="btn primary sm" type="submit">Prijavi se</button></div><p class="faint small" id="loginmsg"></p></form>`;
+
+  $main.innerHTML = `<div class="pagehead"><div class="kicker">Nalog, datumi, izgled, podaci</div><h1>Podešavanja</h1></div><div class="setgrid">
+    <section class="card stack"><h3><i class="ph ph-cloud-arrow-up"></i> Sinhronizacija</h3>${syncCard}</section>
+    <section class="card stack"><h3><i class="ph ph-microphone-stage"></i> Datumi takmičenja</h3><p class="muted small">Kad saznaš, upiši. Tog dana Danas prikazuje ritual, a datumi se vide u Kalendaru.</p>
+      <form class="form" id="dates"><div class="grid2"><label class="field"><span>Polufinale</span><input type="date" name="polufinale" value="${esc(s.polufinale)}"></label><label class="field"><span>Finale</span><input type="date" name="finale" value="${esc(s.finale)}"></label></div><div class="actions"><button class="btn primary sm" type="submit">Sačuvaj</button></div></form></section>
+    <section class="card stack"><h3><i class="ph ph-moon"></i> Izgled</h3><div class="seg">${[["", "Tamno"], ["light", "Svetlo"]].map(([v, l]) => `<button class="${theme === v ? "on" : ""}" data-theme="${v}">${l}</button>`).join("")}</div>
+      <p class="muted small">Na iPhone-u: Safari → Deli → <b>Add to Home Screen</b>, pa radi kao aplikacija bez trake browsera.</p></section>
+    <section class="card stack"><h3><i class="ph ph-database"></i> Podaci</h3><p class="muted small">Progres, dnevnik, logovi izazova i merila. Izvoz je JSON koji možeš i meni da pošalješ.</p>
+      <div class="row wrap"><button class="btn sm" id="export"><i class="ph ph-download-simple"></i>Izvezi JSON</button><label class="btn sm" for="import"><i class="ph ph-upload-simple"></i>Uvezi JSON</label><input id="import" type="file" accept="application/json" hidden><button class="btn sm" id="reset" style="color:var(--warn)"><i class="ph ph-trash"></i>Obriši lokalno</button></div></section>
+    <section class="card stack"><h3><i class="ph ph-info"></i> O planu</h3><p class="muted small">${esc(PLAN.meta.goal)}</p><a class="btn sm" href="#/plan" style="justify-self:start">Pročitaj više</a></section>
   </div>`;
   document.getElementById("dates").addEventListener("submit", (e) => { e.preventDefault(); const d = Object.fromEntries(new FormData(e.target).entries()); store.set("settings", "main", { ...s, ...d }); toast("Sačuvano"); });
   document.getElementById("export").addEventListener("click", () => { const b = new Blob([store.exportJSON()], { type: "application/json" }); const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(b), download: `komunikacija-${isoToday()}.json` }); a.click(); });
   document.getElementById("import").addEventListener("change", async (e) => { const f = e.target.files[0]; if (!f) return; store.importJSON(await f.text()); toast("Uvezeno"); });
   document.getElementById("reset").addEventListener("click", () => { if (confirm("Obrisati sav progres sa ovog uređaja? (Ako si sinhronizovan, vratiće se sa servera.)")) { store.resetLocal(); toast("Obrisano"); } });
-  $main.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => { const t = b.dataset.theme; if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; try { localStorage.setItem("komunikacija.theme", t); } catch {} }));
+  $main.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => { const t = b.dataset.theme; if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; try { localStorage.setItem("komunikacija.theme", t); } catch {} $main.querySelectorAll("[data-theme]").forEach((x) => x.classList.toggle("on", x === b)); }));
   const login = document.getElementById("login");
   if (login) {
     const msg = document.getElementById("loginmsg");
