@@ -457,3 +457,31 @@ table.metrics input { padding: 6px 8px; font-family: var(--mono); font-size: 13p
   .tabs a.active i { transform: translateY(-1px) scale(1.08); }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+
+/* ---------- Voja pokret: pojavljivanje pri skrolu, paralaksa, zaglavlje ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .rv-on .rv-item { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity var(--dur-base) ease-out var(--d, 0ms), transform var(--dur-slow) var(--ease) var(--d, 0ms); }
+  .rv-on .rv-item.in { opacity: 1; transform: none; }
+  .rv-on .task.rv-item { transition-property: opacity, transform, background-color; }
+  .rv-on .rings a.rv-item, .rv-on .step.rv-item { transform: translate3d(0, 12px, 0) scale(.96); }
+  .arch .arch-ico, .arch img { transform: translate3d(0, var(--py, 0px), 0); will-change: transform; }
+  .side { transition: height var(--dur-base) var(--ease), box-shadow var(--dur-base) ease-out; }
+  body.scrolled .side { box-shadow: 0 10px 30px -20px rgba(25, 21, 78, 0.35); }
+}
+.arch .arch-ico { position: absolute; left: 50%; top: 50%; translate: -50% -58%; font-size: 150px; color: rgba(255, 255, 255, 0.92); text-shadow: 0 20px 50px rgba(0, 0, 0, 0.25); }
+@media (max-width: 899px) { .arch .arch-ico { font-size: 96px; translate: -50% -52%; } }
+.arch[data-week="W0"], .arch[data-week="W4"], .arch[data-week="W8"] { background: radial-gradient(ellipse 60% 50% at 50% 35%, #f2d7bf 0%, #c9a78e 40%, #5b3a28 100%); }
+.arch[data-week="W1"], .arch[data-week="W5"], .arch[data-week="W9"] { background: radial-gradient(ellipse 60% 50% at 50% 35%, #e9dcf2 0%, #8c86b8 40%, #19154e 100%); }
+.arch[data-week="W2"], .arch[data-week="W6"], .arch[data-week="W10"] { background: radial-gradient(ellipse 60% 50% at 50% 35%, #f6e7d2 0%, #d9b394 35%, #3b2a2f 100%); }
+.arch[data-week="W3"], .arch[data-week="W7"], .arch[data-week="W11"] { background: radial-gradient(ellipse 60% 50% at 50% 35%, #f2d7bf 0%, #b58d72 40%, #2a2550 100%); }
+
+/* ---------- mobilno zaglavlje ---------- */
+.mhead { display: flex; align-items: center; justify-content: space-between; padding: 12px var(--gutter) 0; }
+.mbrand { font: 400 24px/1 var(--font-script); color: var(--brand); }
+.mstatus { color: var(--ink-faint); font-size: 22px; padding: 6px; border-radius: var(--r-pill); }
+@media (min-width: 900px) { .mhead { display: none; } }
+
+/* ---------- učitavanje ---------- */
+.loading { display: grid; justify-items: center; gap: 14px; padding: 80px 0; }
+@media (prefers-reduced-motion: no-preference) { .loading .fit { animation: spin 1.2s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } } }

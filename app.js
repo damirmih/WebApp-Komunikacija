@@ -26,6 +26,7 @@ const PILLARS = [
   ["Glas", ["glas"]], ["Telo", ["telo"]], ["Jasnoća i razgovor", ["glavno"]],
   ["Pitch", ["pitch", "checkpoint", "checkin"]], ["Izazovi", ["izazov"]], ["Dnevnik", ["refleksija"]],
 ];
+const ARCH_ICON = { W0: "ph-compass", W1: "ph-user-sound", W2: "ph-lightbulb", W3: "ph-chats-circle", W4: "ph-lightning", W5: "ph-book-open-text", W6: "ph-microphone-stage", W7: "ph-flag-checkered", W8: "ph-lock-key", W9: "ph-trophy", W10: "ph-confetti", W11: "ph-medal" };
 const MONTHS = ["januar", "februar", "mart", "april", "maj", "jun", "jul", "avgust", "septembar", "oktobar", "novembar", "decembar"];
 const DOWS = ["ponedeljak", "utorak", "sreda", "četvrtak", "petak", "subota", "nedelja"];
 
@@ -66,7 +67,11 @@ const SIDE_EXTRA = [["#/nedelje", "ph-rows", "Nedelje"], ["#/izazovi", "ph-fire"
 
 function renderNav(route) {
   const act = (h) => (route.startsWith(h.slice(1)) ? "active" : "");
-  $tabs.innerHTML = NAV.map(([h, i, l]) => `<a href="${h}" class="${act(h)}"><i class="ph ${i}"></i>${l}</a>`).join("");
+  $tabs.innerHTML = NAV.map(([h, i, l]) => `<a href="${h}" class="${act(h)}"><i class="ph ${i}" aria-hidden="true"></i>${l}</a>`).join("");
+  let mh = document.getElementById("mhead");
+  if (!mh) { mh = document.createElement("header"); mh.id = "mhead"; mh.className = "mhead"; document.getElementById("app").prepend(mh); }
+  const sNow = store.sync();
+  mh.innerHTML = `<a class="mbrand" href="#/danas">Komunikacija</a><a class="mstatus" href="#/podesavanja" aria-label="Podešavanja i sinhronizacija"><i class="ph ${sNow.status === "online" ? "ph-cloud-check" : "ph-cloud-slash"}" aria-hidden="true"></i></a>`;
   const s = store.sync();
   const statusTxt = s.status === "local" ? "Samo na ovom uređaju" : s.status === "online" ? `Sinhronizovano${s.lastSync ? " · " + new Date(s.lastSync).toLocaleTimeString("sr-RS", { hour: "2-digit", minute: "2-digit" }) : ""}` : "Nisi prijavljen";
   $side.innerHTML = `<div class="brand"><img src="icons/icon.svg" alt=""> Komunikacija</div>` +
@@ -128,7 +133,7 @@ function viewToday(date) {
           <a class="iconbtn" href="#/dan/${addDays(date, 1)}" aria-label="Sledeći dan"><i class="ph ph-caret-right" aria-hidden="true"></i></a>
         </div>
       </div>
-      <figure class="arch" aria-hidden="true"><div class="mic"></div><div class="lbl">${w.id} · ${esc(w.title)}</div></figure>
+      <figure class="arch" aria-hidden="true" data-week="${w.id}"><i class="ph ${ARCH_ICON[w.id] || "ph-microphone-stage"} arch-ico"></i><div class="lbl">${w.id} · ${esc(w.title)}</div></figure>
     </header>
     ${eventNote.map((n) => `<div class="card mist"><p class="callout b">${esc(n)}</p></div>`).join("")}
     <section class="band">
@@ -614,13 +619,36 @@ function viewSettings() {
   document.getElementById("out")?.addEventListener("click", async () => { await store.signOut(); toast("Odjavljen"); });
 }
 
+
+// ---------- pokret: pojavljivanje pri skrolu, paralaksa luka, sažimanje zaglavlja (kao Voja) ----------
+const reduceMq = window.matchMedia("(prefers-reduced-motion: reduce)");
+let revealIO = null;
+function setupReveal() {
+  if (reduceMq.matches || !("IntersectionObserver" in window)) return;
+  document.documentElement.classList.add("rv-on");
+  revealIO?.disconnect();
+  revealIO = new IntersectionObserver((entries) => {
+    entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); revealIO.unobserve(e.target); } });
+  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+  const items = [...$main.querySelectorAll(".task, .wcard, .excard, .drow, .key, .lvl, .month, .logrow, .pillar, .videos a, .step, .rings a")];
+  items.forEach((el, i) => { el.classList.add("rv-item"); el.style.setProperty("--d", `${Math.min(i % 8, 7) * 60}ms`); revealIO.observe(el); });
+}
+let parallaxQueued = false;
+function paintParallax() {
+  parallaxQueued = false;
+  const arch = $main.querySelector(".arch");
+  if (arch) arch.style.setProperty("--py", `${Math.min(80, window.scrollY * 0.18)}px`);
+  document.body.classList.toggle("scrolled", window.scrollY > 24);
+}
+window.addEventListener("scroll", () => { if (!parallaxQueued && !reduceMq.matches) { parallaxQueued = true; requestAnimationFrame(paintParallax); } }, { passive: true });
+
 // ---------- router ----------
 function route() {
   const h = location.hash || "#/danas";
   const [, path, arg] = h.match(/^#\/([a-z]+)(?:\/([^/]+))?/) || [, "danas"];
   renderNav(h);
   window.scrollTo(0, 0);
-  switch (path) {
+  const r = (() => { switch (path) {
     case "danas": return viewToday();
     case "dan": return viewToday(arg);
     case "kalendar": return viewCalendar();
@@ -633,10 +661,14 @@ function route() {
     case "plan": return viewAbout();
     case "podesavanja": return viewSettings();
     default: return viewToday();
-  }
+  } })();
+  setupReveal();
+  paintParallax();
+  return r;
 }
 
 async function main() {
+  $main.innerHTML = `<div class="loading"><div class="fit big" style="--o:30;--i:60"><span>…</span></div><p class="muted">Učitavanje plana…</p></div>`;
   try { localStorage.removeItem("komunikacija.theme"); } catch {}
   const res = await fetch("data/plan.json");
   PLAN = await res.json();
@@ -661,6 +693,8 @@ function rerenderQuiet() {
   ({ danas: () => viewToday(), dan: () => viewToday(arg), kalendar: viewCalendar, nedelje: viewWeeks, nedelja: () => viewWeek(arg), progres: viewProgress, izazovi: viewChallenges, vezbe: viewExercises, vise: viewMore, plan: viewAbout, podesavanja: viewSettings }[path] || viewToday)();
   $main.querySelectorAll(".task").forEach((t) => { if (open.includes(t.querySelector(".t-name")?.textContent)) t.querySelector(".t-body").hidden = false; });
   $main.querySelectorAll(".main > *, .main > * > *").forEach((el) => { el.style.animation = "none"; });
+  $main.querySelectorAll(".task, .wcard, .excard, .drow, .key, .lvl, .month, .logrow, .pillar, .videos a, .step, .rings a").forEach((el) => el.classList.add("rv-item", "in"));
+  paintParallax();
   window.scrollTo(0, y);
 }
 
