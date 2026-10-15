@@ -333,6 +333,7 @@ function viewProgress() {
   past.forEach((d) => { const s = dayStats(d); agg.n += s.n; agg.nd += s.nd; agg.min += s.min; agg.mind += s.mind; });
   const total = PLAN.days.reduce((a, d) => a + dayStats(d).n, 0);
   const totalDone = PLAN.days.reduce((a, d) => a + dayStats(d).nd, 0);
+  const totalPct = Math.round((totalDone / total) * 100);
   const done = store.all("done");
   const perPillar = PILLARS.map(([label, slots]) => {
     let n = 0, nd = 0;
@@ -343,26 +344,53 @@ function viewProgress() {
   const chDoneTasks = past.reduce((a, d) => a + d.tasks.filter((t, i) => t.slot === "izazov" && done[taskKey(d.date, t, i)]).length, 0);
   const metrics = store.all("metrics");
   const daysIn = past.length;
+  const perfectDays = past.filter((d) => { const s = dayStats(d); return s.n && s.nd === s.n; }).length;
+  const weeks = PLAN.weeks.map((w) => {
+    const days = PLAN.days.filter((d) => d.week === w.id);
+    const a = days.reduce((x, d) => { const s = dayStats(d); x.n += s.n; x.nd += s.nd; return x; }, { n: 0, nd: 0 });
+    return { w, pct: a.n ? Math.round((a.nd / a.n) * 100) : 0, cur: today >= w.from_ && today <= w.to, future: today < w.from_ };
+  });
+  const remaining = PLAN.days.length - daysIn;
+  const dec31 = "2026-12-31";
 
   $main.innerHTML = `
-    <div class="pagehead"><div class="kicker">Dan ${daysIn} od ${PLAN.days.length}</div><h1>Progres</h1></div>
-    <div class="stats">
-      <div class="stat"><div class="v">${streak()}</div><div class="l">dana zaredom sa bar jednom vežbom</div></div>
-      <div class="stat"><div class="v">${agg.n ? Math.round((agg.nd / agg.n) * 100) : 0}%</div><div class="l">zadataka urađeno do danas (${agg.nd}/${agg.n})</div></div>
-      <div class="stat"><div class="v">${Math.round(agg.mind / 60 * 10) / 10}h</div><div class="l">vežbanja upisano (od ${Math.round(agg.min / 60)}h planiranih)</div></div>
-      <div class="stat"><div class="v">${chDoneTasks}</div><div class="l">izazova urađeno · ${challenges.length} zabeleženo</div></div>
-      <div class="stat"><div class="v">${Math.round((totalDone / total) * 100)}%</div><div class="l">celog plana do 31. 12.</div></div>
+    <div class="pagehead"><div class="kicker">Dan ${daysIn} od ${PLAN.days.length} · još ${remaining} dana do ${fmtShort(dec31)}</div><h1>Progres</h1></div>
+    <div class="prog-top">
+      <div class="card prog-hero">
+        <div class="fit big" style="--o:${totalPct};--i:${Math.round((agg.mind / Math.max(1, PLAN.days.reduce((a, d) => a + dayStats(d).min, 0))) * 100)}"><span>${totalPct}%</span></div>
+        <div>
+          <h2>Ceo plan do Nove godine</h2>
+          <p class="muted small" style="margin-top:6px">${totalDone} od ${total} zadataka. Spoljni prsten su zadaci, unutrašnji minuti.</p>
+          <div class="prog-mini">
+            <div><b>${streak()}</b><span>dana zaredom</span></div>
+            <div><b>${perfectDays}</b><span>dana sa 100 %</span></div>
+            <div><b>${agg.n ? Math.round((agg.nd / agg.n) * 100) : 0}%</b><span>do danas (${agg.nd}/${agg.n})</span></div>
+            <div><b>${Math.round(agg.mind / 60 * 10) / 10}h</b><span>vežbanja od ${Math.round(agg.min / 60)}h</span></div>
+            <div><b>${chDoneTasks}</b><span>izazova · ${challenges.length} logova</span></div>
+          </div>
+        </div>
+      </div>
     </div>
-    <section class="card" style="margin-top:14px"><h3 style="margin-bottom:6px">Po oblasti (do danas)</h3>
-      ${perPillar.map(([l, n, nd]) => `<div class="pillar"><span>${l}</span><span class="mono small muted">${nd}/${n}</span><div class="bar ${n && nd === n ? "ok" : ""}"><i style="--w:${n ? Math.round(nd / n * 100) : 0}%"></i></div></div>`).join("")}
-    </section>
-    <section style="margin-top:22px"><h2 style="margin-bottom:4px">Checkpointi</h2><p class="small muted" style="margin-bottom:10px">Isti snimci, iste brojke. Popuni posle svake analize; baseline je upisan.</p>
-      <div class="tablewrap"><table class="metrics"><thead><tr><th>Merilo</th>${CHECKPOINTS.map((c) => `<th>${fmtShort(c)}</th>`).join("")}</tr></thead><tbody>
-        ${METRICS.map(([k, l]) => `<tr><th>${l}</th>${CHECKPOINTS.map((c, ci) => `<td><input data-metric="${c}|${k}" value="${esc(ci === 0 ? (metrics[c]?.[k] ?? BASE[k]) : metrics[c]?.[k])}" placeholder="–"></td>`).join("")}</tr>`).join("")}
-      </tbody></table></div>
-    </section>
-    <section style="margin-top:22px"><h2 style="margin-bottom:8px">Subotnji benchmark</h2>
-      <div class="card stack" style="gap:8px">${renderBenchmarks(metrics)}</div></section>`;
+    <div class="prog-cols">
+      <section class="card">
+        <h3 style="margin-bottom:12px">12 nedelja</h3>
+        <div class="weeks-strip">${weeks.map((x) => `<a href="#/nedelja/${x.w.id}" class="${x.cur ? "cur" : ""} ${x.future ? "future" : ""}" title="${esc(x.w.title)} · ${x.pct}%"><div class="col"><i style="--h:${x.pct}%"></i></div><span>${x.w.id.replace("W", "")}</span></a>`).join("")}</div>
+        <p class="faint small" style="margin-top:10px">${esc(weeks.find((x) => x.cur)?.w.title ?? "")}</p>
+      </section>
+      <section class="card">
+        <h3 style="margin-bottom:6px">Po oblasti, do danas</h3>
+        ${perPillar.map(([l, n, nd]) => `<div class="pillar"><span>${l}</span><span class="mono small muted">${nd}/${n}</span><div class="bar"><i style="--w:${n ? Math.round(nd / n * 100) : 0}%"></i></div></div>`).join("")}
+      </section>
+    </div>
+    <div class="prog-cols" style="margin-top:14px">
+      <section class="card"><h3 style="margin-bottom:4px">Checkpointi</h3><p class="small muted" style="margin-bottom:10px">Isti snimci, iste brojke. Baseline od 15. 10. je upisan; ostalo popunjavaš posle analize.</p>
+        <div class="tablewrap"><table class="metrics"><thead><tr><th>Merilo</th>${CHECKPOINTS.map((c) => `<th>${fmtShort(c)}</th>`).join("")}</tr></thead><tbody>
+          ${METRICS.map(([k, l]) => `<tr><th>${l}</th>${CHECKPOINTS.map((c, ci) => `<td><input data-metric="${c}|${k}" value="${esc(ci === 0 ? (metrics[c]?.[k] ?? BASE[k]) : metrics[c]?.[k])}" placeholder="–"></td>`).join("")}</tr>`).join("")}
+        </tbody></table></div>
+      </section>
+      <section class="card"><h3 style="margin-bottom:8px">Subotnji benchmark</h3>
+        <div class="stack" style="gap:8px">${renderBenchmarks(metrics)}</div></section>
+    </div>`;
 
   $main.querySelectorAll("[data-metric]").forEach((inp) => inp.addEventListener("change", () => {
     const [c, k] = inp.dataset.metric.split("|");
