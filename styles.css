@@ -403,3 +403,78 @@ details.ex .body { padding: 0 0 14px; font-size: 14px; color: var(--text-2); dis
 .seg button { border: 0; background: transparent; padding: 8px 16px; border-radius: 999px; cursor: pointer; font: 700 13px/1 var(--font-head); color: var(--text-2); transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
 .seg button.on { background: var(--accent); color: var(--accent-ink); }
 @media (min-width: 900px) { .setgrid { grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; } }
+
+/* =====================================================================
+   POLISH v2: krupnije, hero, dubina, pokret
+   ===================================================================== */
+@property --o { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --i { syntax: "<number>"; inherits: false; initial-value: 0; }
+
+/* skala na desktopu */
+@media (min-width: 900px) {
+  h1 { font-size: 46px; }
+  .side a:not(.brand) { font-size: 14.5px; padding: 9px 14px; }
+  .side .brand { font-size: 16px; }
+  .t-name { font-size: 17px; }
+  .t-min { font-size: 15px; }
+  .task { padding: 14px 8px; }
+  .group-h { font-size: 12px; padding: 18px 6px 8px; }
+  .detail h2 { font-size: 28px; }
+  .detail .how { font-size: 16px; line-height: 1.6; }
+  .detail .card { padding: 26px; }
+  .goal { font-size: 16px; padding: 14px 20px 14px 16px; }
+  .goal i { font-size: 24px; }
+  .segbar .segs { height: 10px; }
+  .segbar .lbl { font-size: 13px; }
+  .fit { width: 76px; height: 76px; } .fit::before { inset: 9px; } .fit::after { inset: 18px; }
+  .fit span { font-size: 16px; }
+  .rings a.today .fit { width: 92px; height: 92px; box-shadow: 0 0 0 8px var(--accent-soft); }
+  .rings a.today .fit::before { inset: 10px; } .rings a.today .fit::after { inset: 20px; }
+  .rings a { font-size: 14px; gap: 10px; }
+  .rings { max-width: 760px; margin: 34px auto 30px; }
+  .today-grid { gap: 20px; }
+  .main { max-width: 1240px; padding: 40px 48px 80px; }
+}
+
+/* hero na Danas */
+.hero { position: relative; display: grid; gap: 10px; padding: 8px 0 6px; margin-bottom: 18px; }
+.hero .kick { font: 600 14px/1.3 var(--font-head); color: var(--text-2); }
+.hero h1 { font-size: 40px; }
+.hero .wk { display: inline-flex; align-items: center; gap: 8px; font: 700 14px/1 var(--font-head); color: var(--accent); }
+.hero .ghost { position: absolute; right: -6px; top: -26px; font: 800 150px/1 var(--font-head); letter-spacing: -0.06em; color: transparent; -webkit-text-stroke: 1px rgba(255, 255, 255, 0.07); pointer-events: none; user-select: none; }
+.hero .nav { position: absolute; right: 0; top: 10px; display: flex; gap: 4px; }
+@media (min-width: 900px) {
+  .hero { grid-template-columns: 1fr auto; align-items: end; padding: 10px 0 14px; margin-bottom: 26px; }
+  .hero h1 { font-size: 64px; letter-spacing: -0.03em; }
+  .hero .kick { font-size: 15px; }
+  .hero .ghost { font-size: 260px; top: -70px; right: 120px; }
+  .hero .nav { position: static; align-self: end; }
+  .today-top { margin-top: 0; }
+}
+
+/* dubina */
+.card, .tasks, .wcard, .lvl, .excard, .drow, .key, .stat { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.6); }
+.detail .card { background: linear-gradient(180deg, color-mix(in srgb, var(--bg-2) 92%, var(--accent)) 0%, var(--bg-2) 30%); }
+.task.fire { box-shadow: 0 10px 30px -18px var(--accent-glow); }
+
+/* pokret: pojavljivanje pri učitavanju (samo transform/opacity) */
+@media (prefers-reduced-motion: no-preference) {
+  .main > * { animation: rise 600ms var(--ease) both; }
+  .main > *:nth-child(1) { animation-delay: 0ms; } .main > *:nth-child(2) { animation-delay: 60ms; } .main > *:nth-child(3) { animation-delay: 120ms; }
+  .main > *:nth-child(4) { animation-delay: 180ms; } .main > *:nth-child(5) { animation-delay: 240ms; } .main > *:nth-child(n+6) { animation-delay: 300ms; }
+  @keyframes rise { from { opacity: 0; transform: translate3d(0, 18px, 0); } to { opacity: 1; transform: none; } }
+  .fit { transition: --o 900ms var(--ease), --i 900ms var(--ease) 120ms; }
+  .fit::before { transition: --i 900ms var(--ease) 120ms; }
+  .check i { transform: scale(0); transition: transform 220ms cubic-bezier(.34, 1.56, .64, 1); }
+  .task.done .check i { transform: scale(1); }
+  .task.done .check { animation: pop 320ms cubic-bezier(.34, 1.56, .64, 1); }
+  @keyframes pop { 0% { transform: scale(.8); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+  .task, .wcard, .excard, .drow, .key, .stat, .goal { transition: transform 160ms var(--ease), box-shadow 220ms var(--ease), border-color 220ms var(--ease), background 220ms var(--ease); }
+  .task:hover { background: rgba(255, 255, 255, 0.035); }
+  .goal:hover, .key:hover, .drow:hover, .excard:hover { transform: translateY(-2px); box-shadow: 0 16px 36px -18px rgba(0, 0, 0, 0.7); }
+  .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -12px var(--accent-glow); }
+  .segbar .segs i { transition: background 400ms var(--ease); }
+  .weeks-strip .col i, .bar > i { transition: height 800ms var(--ease), width 800ms var(--ease); }
+  .tabs a i, .side a i { transition: transform 160ms var(--ease); }
+  .tabs a.active i { transform: translateY(-1px) scale(1.08); }
+}

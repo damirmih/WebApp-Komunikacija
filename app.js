@@ -113,11 +113,19 @@ function viewToday(date) {
 
   let num = 0;
   $main.innerHTML = `
-    <div class="daynav">
-      <a class="iconbtn" href="#/dan/${addDays(date, -1)}" aria-label="Prethodni dan"><i class="ph ph-caret-left"></i></a>
-      <div class="title"><h1>${date === today ? "Danas" : fmtLong(date)}</h1><div class="sub">${date === today ? fmtLong(date) + " · " : ""}dan ${PLAN.days.indexOf(day) + 1} od ${PLAN.days.length} · <a href="#/nedelja/${w.id}">${w.id} · ${esc(w.title)}</a></div></div>
-      <a class="iconbtn" href="#/dan/${addDays(date, 1)}" aria-label="Sledeći dan"><i class="ph ph-caret-right"></i></a>
-    </div>
+    <header class="hero">
+      <div class="ghost" aria-hidden="true">${w.id}</div>
+      <div>
+        <div class="kick">${fmtLong(date)} · dan ${PLAN.days.indexOf(day) + 1} od ${PLAN.days.length}</div>
+        <h1>${date === today ? "Danas" : DOWS[(parse(date).getDay() + 6) % 7][0].toUpperCase() + DOWS[(parse(date).getDay() + 6) % 7].slice(1)}</h1>
+        <a class="wk" href="#/nedelja/${w.id}"><i class="ph ph-fire"></i>${w.id} · ${esc(w.title)}</a>
+      </div>
+      <div class="nav">
+        <a class="iconbtn" href="#/dan/${addDays(date, -1)}" aria-label="Prethodni dan"><i class="ph ph-caret-left"></i></a>
+        ${date !== today ? `<a class="btn sm" href="#/danas">Danas</a>` : ""}
+        <a class="iconbtn" href="#/dan/${addDays(date, 1)}" aria-label="Sledeći dan"><i class="ph ph-caret-right"></i></a>
+      </div>
+    </header>
     ${eventNote.map((n) => `<div class="callout" style="margin-bottom:12px">${esc(n)}</div>`).join("")}
     <div class="today-top">
       ${goal ? `<button class="goal" data-select="${goal.i}"><i class="ph ph-target"></i><span><span class="l">Cilj dana:</span> ${esc(goal.t.name)}</span><span class="m">${goal.t.min ? goal.t.min + " min" : ""}</span></button>` : ""}
@@ -135,6 +143,14 @@ function viewToday(date) {
     <p class="faint small" style="margin-top:18px">${esc(w.rule)}</p>`;
 
   bindToday(date, journal);
+  animateRings();
+}
+
+function animateRings() {
+  const fits = [...$main.querySelectorAll(".fit")];
+  const vals = fits.map((f) => [f.style.getPropertyValue("--o"), f.style.getPropertyValue("--i")]);
+  fits.forEach((f) => { f.style.setProperty("--o", "0"); f.style.setProperty("--i", "0"); });
+  requestAnimationFrame(() => requestAnimationFrame(() => fits.forEach((f, k) => { f.style.setProperty("--o", vals[k][0]); f.style.setProperty("--i", vals[k][1]); })));
 }
 
 function bindToday(date, journal) {
@@ -290,6 +306,7 @@ function viewCalendar() {
     <div class="legend"><span><i class="fit mini" style="--o:100;--i:100;display:inline-grid;vertical-align:middle;margin-right:6px"></i>spoljni prsten zadaci, unutrašnji minuti</span><span><i style="background:var(--accent)"></i>checkpoint</span><span><i style="outline:2px solid var(--accent);outline-offset:-2px;background:transparent"></i>danas</span></div>
     <section style="margin-top:22px"><h3 style="margin-bottom:10px">Ključni datumi</h3><div class="keys">${keyHtml}</div>
       ${!settings.polufinale ? `<p class="faint small" style="margin-top:10px">Polufinale i finale upiši u <a href="#/podesavanja">Podešavanjima</a> kad saznaš datume.</p>` : ""}</section>`;
+  animateRings();
 }
 
 function viewWeeks() {
@@ -309,6 +326,7 @@ function viewWeeks() {
     </a>`;
   }).join("");
   $main.innerHTML = `<div class="pagehead"><div class="kicker">12 nedelja · 15. 10. – 31. 12.</div><h1>Nedelje</h1></div><div class="wgrid">${cards}</div>`;
+  animateRings();
 }
 
 function viewWeek(id) {
@@ -351,6 +369,7 @@ function viewWeek(id) {
       </section>
     </div>
     <section style="margin-top:14px"><h3 style="margin-bottom:10px">Dan po dan</h3><div class="drows">${dayRows}</div></section>`;
+  animateRings();
 }
 
 function streak() {
@@ -437,6 +456,7 @@ function viewProgress() {
         <div class="stack" style="gap:8px">${renderBenchmarks(metrics)}</div></section>
     </div>`;
 
+  animateRings();
   $main.querySelectorAll("[data-metric]").forEach((inp) => inp.addEventListener("change", () => {
     const [c, k] = inp.dataset.metric.split("|");
     store.set("metrics", c, { ...(store.get("metrics", c) ?? {}), [k]: inp.value });
@@ -500,6 +520,7 @@ function viewChallenges() {
         ${logs.length ? `<div class="card" style="margin-top:12px"><h3 style="margin-bottom:6px">Predviđanje vs stvarnost</h3><p class="small muted">Prosek ${(logs.filter((l) => +l.score).reduce((a, l) => a + +l.score, 0) / Math.max(1, logs.filter((l) => +l.score).length)).toFixed(1)}/10. Iznad 5 znači da je bilo bolje nego što si mislio, a to je ceo trening.</p></div>` : ""}
       </aside>
     </div>`;
+  animateRings();
   $main.querySelectorAll(".stepper a").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); document.getElementById(a.getAttribute("href").slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }); }));
 }
 
@@ -634,6 +655,7 @@ function rerenderQuiet() {
   renderNav(h);
   ({ danas: () => viewToday(), dan: () => viewToday(arg), kalendar: viewCalendar, nedelje: viewWeeks, nedelja: () => viewWeek(arg), progres: viewProgress, izazovi: viewChallenges, vezbe: viewExercises, vise: viewMore, plan: viewAbout, podesavanja: viewSettings }[path] || viewToday)();
   $main.querySelectorAll(".task").forEach((t) => { if (open.includes(t.querySelector(".t-name")?.textContent)) t.querySelector(".t-body").hidden = false; });
+  $main.querySelectorAll(".main > *, .main > * > *").forEach((el) => { el.style.animation = "none"; });
   window.scrollTo(0, y);
 }
 
