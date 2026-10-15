@@ -63,7 +63,7 @@ const NAV = [
   ["#/progres", "ph-chart-line-up", "Progres"],
   ["#/vise", "ph-dots-three-circle", "Više"],
 ];
-const SIDE_EXTRA = [["#/nedelje", "ph-rows", "Nedelje"], ["#/izazovi", "ph-fire", "Izazovi"], ["#/vezbe", "ph-books", "Vežbe"], ["#/podesavanja", "ph-gear", "Podešavanja"]];
+const SIDE_EXTRA = [["#/nedelje", "ph-rows", "Nedelje"], ["#/izazovi", "ph-fire", "Izazovi"], ["#/vezbe", "ph-books", "Vežbe"], ["#/plan", "ph-info", "O planu"], ["#/podesavanja", "ph-gear", "Podešavanja"]];
 
 function renderNav(route) {
   const act = (h) => (route.startsWith(h.slice(1)) ? "active" : "");
@@ -572,19 +572,99 @@ let exOpen = "";
 function viewMore() {
   $main.innerHTML = `<div class="pagehead"><h1>Više</h1></div><div class="weeklist">
     ${SIDE_EXTRA.map(([h, i, l]) => `<a class="weekrow" href="${h}"><div class="id"><i class="ph ${i}" style="font-size:22px"></i></div><div class="t">${l}</div><i class="ph ph-caret-right muted"></i></a>`).join("")}
-    <a class="weekrow" href="#/plan"><div class="id"><i class="ph ph-info" style="font-size:22px"></i></div><div class="t">O planu</div><i class="ph ph-caret-right muted"></i></a></div>`;
+</div>`;
 }
 
 function viewAbout() {
   const m = PLAN.meta;
-  $main.innerHTML = `<div class="pagehead"><div class="kicker">${esc(m.person)}</div><h1>O planu</h1></div>
-    <div class="stack">
-      <div class="card stack"><h2>Cilj</h2><p>${esc(m.goal)}</p></div>
-      <div class="card stack"><h3>Četiri stuba</h3><p class="muted">${m.pillars.map(esc).join(" · ")}</p></div>
-      <div class="card stack"><h3>Radni dan</h3><p class="muted small">${esc(m.dailyRhythmWeekday)}</p><h3>Vikend</h3><p class="muted small">${esc(m.dailyRhythmWeekend)}</p></div>
-      <div class="card stack"><h3>Početno stanje (15. 10.)</h3><p class="muted small">Tempo ${esc(m.baseline.wpmSpeaking)} r/min · govor ${esc(m.baseline.speakingTimePct)} % vremena · najduža pauza ${m.baseline.maxPauseSec} s · jačina ${esc(m.baseline.dbMean)} dB · poštapalice ${m.baseline.fillers} · ruke: ${esc(m.baseline.hands)} · njihanje: ${esc(m.baseline.sway)}</p></div>
-      <p class="faint small">Plan generisan ${esc(m.generated)} iz plan/build_plan.py. Vežbe i izvori: research/01–06.</p>
-    </div>`;
+  const today = isoToday();
+  const b = m.baseline;
+  const tl = [
+    ["2026-10-14", "Masterklas i odluka", "Odgledan Vinh Giang masterklas. Umesto kursa od 495 $: istraživanje 6 oblasti (27.000 reči, 270 izvora) i sopstveni plan."],
+    ["2026-10-15", "Početni snimci", `„O sebi“ 45 s i „projekat“ 51 s. Tempo ${b.wpmSpeaking} r/min, govor ${b.speakingTimePct} % vremena, najduža pauza ${b.maxPauseSec} s, nula poštapalica, prsti prepleteni.`],
+    ["2026-10-19", "W1: kostur „o sebi“", "Jedna stvar + zašto + šta sad. Dah i brujanje svaki dan. Prvi izazovi nivoa 4."],
+    ["2026-11-01", "Checkpoint #1", "Isti snimci, iste brojke. Prva tabela poređenja."],
+    ["2026-11-09", "W4: pitanja na neviđeno", "PREP i 3-2-1, pauza od 2 s pre svakog odgovora. Anketa u školi daje broj za udicu pitcha."],
+    ["2026-11-23", "W6: polufinale InnovNation", "Pitch 3 min + demo uživo, generalna proba pred ljudima koji nisu u timu."],
+    ["2026-12-01", "Checkpoint #2", "Prepravka po pitanjima žirija. Decembar: 20 min dnevno, nikad nula."],
+    ["2026-12-14", "W9: finale", "Jedan prolaz dnevno, ritual pre izlaska, debrief isti dan."],
+    ["2026-12-21", "W10: praznici", "Zdravice, vođenje razgovora, Dan rejection terapije."],
+    ["2026-12-31", "Završni checkpoint", "Četiri kolone jedna pored druge. Retrospektiva i plan za januar: engleski v2."],
+  ];
+  $main.innerHTML = `
+    <section class="about-hero">
+      <div class="copy">
+        <div class="kick">O planu · 15. oktobar – 31. decembar 2026</div>
+        <h1>Od <em>„evo, dobro“</em><br>do bine.</h1>
+        <p class="lead">${esc(m.goal)}</p>
+        <p class="lead">Sedamdeset osam dana, trideset minuta radnim danom, dva sata vikendom. Isti snimci na početku, u sredini i na kraju, da se napredak vidi u brojkama, a ne u osećaju.</p>
+      </div>
+      <figure class="arch" aria-hidden="true" data-week="W6"><i class="ph ph-microphone-stage arch-ico"></i><div class="lbl">InnovNation 2026 · decembar</div></figure>
+    </section>
+
+    <section class="band about-band">
+      <div><div class="rule"><small>Početno stanje, 15. oktobar</small>Nisi tih zato što ne umeš da budeš glasan, nego zato što dok govoriš smišljaš šta ćeš sledeće reći.</div></div>
+      <div class="stats-row about-stats">
+        <div><b>${esc(b.wpmSpeaking)}</b><span>reči u minuti<br>dok govoriš</span></div>
+        <div><b>${b.maxPauseSec}</b><span>sekundi najduža<br>pauza</span></div>
+        <div><b>${b.fillers}</b><span>poštapalica<br>u oba snimka</span></div>
+        <div><b>${b.selfVoice}/10</b><span>glas, tvoja<br>ocena</span></div>
+      </div>
+    </section>
+
+    <section class="pillars">
+      <h2>Četiri stuba, po važnosti</h2>
+      <div class="pgrid">
+        ${[["ph-lightbulb", "Jasnoća i redosled", "Problem pre rešenja, jedna rečenica tehnike, putokazi. Lek za „curse of knowledge“ koji ti tata primećuje."],
+           ["ph-microphone", "Glas i autoritet", "Dah, rezonanca napred, kraj rečenice nadole, pauza umesto poštapalice. Mereno decibelima svake subote."],
+           ["ph-chats-circle", "Small talk i razgovor", "Odgovor + detalj + pitanje. Ulazak u grupu u roku od tri sekunde. Lestvica izazova 4–10."],
+           ["ph-presentation", "Pitch za žiri", "Tri minuta, demo uživo, banka od 26 pitanja. Struktura, ne reči napamet."]].map(([i, t, d], k) => `<div class="pcard ${k % 2 ? "mist" : ""}"><i class="ph ${i}"></i><h3>${t}</h3><p>${d}</p></div>`).join("")}
+      </div>
+    </section>
+
+    <section class="rhythm card navy">
+      <h2>Kako izgleda dan</h2>
+      <div class="rgrid">
+        <div><b>5′</b><span>glas: dah, brujanje, slamčica</span></div>
+        <div><b>3′</b><span>telo: usađivanje, ruke, pogled</span></div>
+        <div><b>15′</b><span>glavna vežba nedelje, snimljena</span></div>
+        <div><b>1</b><span>izazov tokom dana, sa logom</span></div>
+        <div><b>5′</b><span>dnevnik: Try & Apply, Reflect & Review, Plan & Improve</span></div>
+        <div><b>bus</b><span>video nedelje ili jučerašnji snimak</span></div>
+      </div>
+      <p class="muted" style="margin-top:14px">Subota: benchmark + tata 10 min + veći izazov. Nedelja: check‑in sa Claude‑om, koji iz baze povuče progres i koriguje sledeću nedelju.</p>
+    </section>
+
+    <section class="timeline" id="vremenska-linija">
+      <h2>Put do Nove godine</h2>
+      <ol class="tl">${tl.map(([d, t, txt]) => `<li class="tl-item ${d <= today ? "past" : ""}"><div class="tl-dot"></div><div class="tl-date">${fmtLong(d)}</div><h3>${esc(t)}</h3><p>${esc(txt)}</p></li>`).join("")}</ol>
+    </section>
+
+    <section class="sources">
+      <h2>Na čemu je plan zasnovan</h2>
+      <div class="sgrid">
+        ${[["01", "Jasnoća i struktura", "Curse of knowledge, PARA, 3‑2‑1, PREP, ABT, Matt Abrahams, Toastmasters."],
+           ["02", "Glas", "RCSLT i NHS logopedi, Julian Treasure, Vinh Giang, Titze (slamčica), merenje dB i F0."],
+           ["03", "Small talk i izazovi", "Harvard studija o potpitanjima, Debra Fine, Charisma on Command, Jia Jiang, lestvica od 39 izazova."],
+           ["04", "Storytelling i telo", "Matthew Dicks, Pixar Story Spine, The Moth, Vanessa Van Edwards, Toastmasters."],
+           ["05", "Pitch", "Y Combinator, Guy Kawasaki, Nathan Gold, finale InnovNation 2025, banka pitanja žirija."],
+           ["06", "Metod vežbanja", "Ericsson (deliberate practice), BJ Fogg, James Clear, Vinhov besplatni sadržaj po modulima."]].map(([n, t, d]) => `<div class="scard"><span class="sn">${n}</span><h3>${t}</h3><p>${d}</p></div>`).join("")}
+      </div>
+      <p class="faint small" style="margin-top:12px">Fajlovi: research/01–06 u Communications folderu. Plan generiše plan/build_plan.py; ovaj sajt čita plan.json. Generisano ${esc(m.generated)}.</p>
+    </section>`;
+  setupTimeline();
+}
+
+function setupTimeline() {
+  const tl = $main.querySelector(".tl");
+  if (!tl) return;
+  if (reduceMq.matches || !("IntersectionObserver" in window)) { tl.querySelectorAll(".tl-item").forEach((i) => i.classList.add("on")); tl.style.setProperty("--p", "100%"); return; }
+  tl.classList.add("tl-ready");
+  const io = new IntersectionObserver((entries) => { entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("on"); io.unobserve(e.target); } }); }, { rootMargin: "0px 0px -20% 0px" });
+  tl.querySelectorAll(".tl-item").forEach((i) => io.observe(i));
+  const paint = () => { const r = tl.getBoundingClientRect(); const p = Math.max(0, Math.min(1, (window.innerHeight * 0.75 - r.top) / r.height)); tl.style.setProperty("--p", `${Math.round(p * 100)}%`); };
+  let q = false; const onScroll = () => { if (!q) { q = true; requestAnimationFrame(() => { q = false; paint(); }); } };
+  window.addEventListener("scroll", onScroll, { passive: true }); paint();
 }
 
 function viewSettings() {
