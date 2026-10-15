@@ -75,6 +75,15 @@ function renderNav(route) {
 }
 
 // ---------- views ----------
+let sel = null; // izabrani zadatak za detalj: { date, i }
+
+function goalTask(day) {
+  const pri = { checkpoint: 4, pitch: 3, glavno: 2, checkin: 1 };
+  let best = null, bi = -1;
+  day.tasks.forEach((t, i) => { if (!isCore(t)) return; const score = (pri[t.slot] || 0) * 1000 + t.min; if (!best || score > best.score) { best = { t, i, score }; bi = i; } });
+  return best ? { t: best.t, i: bi } : null;
+}
+
 function viewToday(date) {
   date = clampDate(date || isoToday());
   const day = byDate.get(date);
@@ -83,36 +92,52 @@ function viewToday(date) {
   const today = isoToday();
   const journal = store.get("journal", date) ?? {};
   const settings = store.get("settings", "main") ?? {};
+  const goal = goalTask(day);
+  if (!sel || sel.date !== date) sel = goal ? { date, i: goal.i } : null;
 
   const groups = {};
   day.tasks.forEach((t, i) => (groups[t.slot] ??= []).push([t, i]));
-
+  const coreList = day.tasks.map((t, i) => [t, i]).filter(([t]) => isCore(t));
+  const segs = coreList.map(([t, i]) => `<i class="${isDone(date, t, i) ? "on" : ""}" title="${esc(t.name)}"></i>`).join("");
   const eventNote = [settings.polufinale === date && "Danas je polufinale: zagrevanje 5 min, udica 3× naglas, pauza 1–2 s pre svakog odgovora.",
     settings.finale === date && "Danas je finale: ritual pre izlaska, usađena stopala, posle: debrief dok je sveže."].filter(Boolean);
 
+  // prstenovi: dani ove nedelje
+  const wdays = PLAN.days.filter((d) => d.week === w.id);
+  const rings = wdays.map((d) => {
+    const s = dayStats(d);
+    const cls = [d.date === today ? "today" : "", d.date > today ? "future" : "", d.date === date ? "sel" : ""].join(" ");
+    const minPct = s.min ? Math.round((s.mind / s.min) * 100) : 0;
+    return `<a href="#/dan/${d.date}" class="${cls}" title="${s.nd}/${s.n} zadataka · ${s.mind}/${s.min} min"><div class="fit" style="--o:${s.pct};--i:${minPct}"><span>${parse(d.date).getDate()}</span></div><span>${d.dow}</span></a>`;
+  }).join("");
+
+  let num = 0;
   $main.innerHTML = `
     <div class="daynav">
       <a class="iconbtn" href="#/dan/${addDays(date, -1)}" aria-label="Prethodni dan"><i class="ph ph-caret-left"></i></a>
-      <div class="title"><h1>${date === today ? "Danas" : fmtLong(date)}</h1><div class="sub">${date === today ? fmtLong(date) + " · " : ""}<a href="#/nedelja/${w.id}">${w.id} · ${esc(w.title)}</a></div></div>
+      <div class="title"><h1>${date === today ? "Danas" : fmtLong(date)}</h1><div class="sub">${date === today ? fmtLong(date) + " · " : ""}dan ${PLAN.days.indexOf(day) + 1} od ${PLAN.days.length} · <a href="#/nedelja/${w.id}">${w.id} · ${esc(w.title)}</a></div></div>
       <a class="iconbtn" href="#/dan/${addDays(date, 1)}" aria-label="Sledeći dan"><i class="ph ph-caret-right"></i></a>
     </div>
-    ${eventNote.map((n) => `<div class="callout" style="margin-bottom:12px"><b>${esc(n)}</b></div>`).join("")}
-    <div class="card row between">
-      <div class="stack" style="gap:4px">
-        <div class="row wrap" style="gap:6px"><span class="chip accent"><i class="ph ph-fire"></i> izazov nivo ${w.level}</span><span class="chip mono">${st.mind}/${st.min} min</span>${day.checkpoint ? `<span class="chip ok"><i class="ph ph-flag-checkered"></i> checkpoint</span>` : ""}</div>
-        <p class="small muted">${esc(w.rule)}</p>
-      </div>
-      <div class="ring" style="--p:${st.pct}"><span>${st.pct}%</span></div>
+    ${eventNote.map((n) => `<div class="callout" style="margin-bottom:12px">${esc(n)}</div>`).join("")}
+    <div class="today-top">
+      ${goal ? `<button class="goal" data-select="${goal.i}"><i class="ph ph-target"></i><span><span class="l">Cilj dana:</span> ${esc(goal.t.name)}</span><span class="m">${goal.t.min ? goal.t.min + " min" : ""}</span></button>` : ""}
+      <div class="segbar"><div class="segs">${segs}</div><div class="lbl"><span>${st.nd}/${st.n} zadataka</span><span>${st.mind}/${st.min} min · ${st.pct}%</span></div></div>
     </div>
-    ${SLOT_ORDER.filter((s) => groups[s]).map((s) => `
-      <section class="group">
-        <div class="group-h"><i class="ph ${SLOT[s].icon}"></i>${SLOT[s].label}</div>
-        <div class="card" style="padding:4px 6px">
-          ${groups[s].map(([t, i]) => renderTask(date, t, i, journal)).join("")}
-        </div>
-      </section>`).join("")}
-    <p class="faint small" style="margin-top:18px">Dan ${PLAN.days.indexOf(day) + 1} od ${PLAN.days.length} · ${w.theme}</p>`;
+    <div class="rings">${rings}</div>
+    <div class="today-grid">
+      <div class="tasks">
+        ${SLOT_ORDER.filter((s) => groups[s]).map((s) => `
+          <div class="group-h"><i class="ph ${SLOT[s].icon}"></i>${SLOT[s].label}${s === "izazov" ? " · nivo " + w.level : ""}</div>
+          ${groups[s].map(([t, i]) => renderTask(date, t, i, journal, ++num)).join("")}`).join("")}
+      </div>
+      <aside class="detail">${renderDetail(date, journal)}</aside>
+    </div>
+    <p class="faint small" style="margin-top:18px">${esc(w.rule)}</p>`;
 
+  bindToday(date, journal);
+}
+
+function bindToday(date, journal) {
   $main.querySelectorAll("[data-toggle]").forEach((el) => el.addEventListener("click", (e) => {
     e.stopPropagation();
     const [d, i] = el.dataset.toggle.split("|");
@@ -122,31 +147,38 @@ function viewToday(date) {
     store.set("done", k, now ? { at: new Date().toISOString(), min: t.min } : null);
     if (now && isCore(t)) { const s = dayStats(byDate.get(d)); if (s.pct === 100) toast("Dan završen. Svaka čast."); }
   }));
-  $main.querySelectorAll("[data-expand]").forEach((el) => el.addEventListener("click", () => {
-    const body = el.closest(".task").querySelector(".t-body");
-    body.hidden = !body.hidden;
+  $main.querySelectorAll("[data-select]").forEach((el) => el.addEventListener("click", () => {
+    const i = +el.dataset.select;
+    const task = el.closest(".task");
+    if (task && window.matchMedia("(max-width: 899px)").matches) { const body = task.querySelector(".t-body"); body.hidden = !body.hidden; }
+    sel = { date, i };
+    const d = $main.querySelector(".detail"); if (d) d.innerHTML = renderDetail(date, journal);
+    $main.querySelectorAll(".task.sel").forEach((x) => x.classList.remove("sel"));
+    $main.querySelector(`.task[data-i="${i}"]`)?.classList.add("sel");
+    bindForms(date, journal);
   }));
-  $main.querySelectorAll("form[data-journal]").forEach((f) => f.addEventListener("submit", (e) => {
+  bindForms(date, journal);
+}
+
+function bindForms(date, journal) {
+  $main.querySelectorAll("form[data-journal]").forEach((f) => { if (f.dataset.bound) return; f.dataset.bound = 1; f.addEventListener("submit", (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(f).entries());
-    store.set("journal", date, { ...journal, ...data, savedAt: new Date().toISOString() });
+    store.set("journal", date, { ...(store.get("journal", date) ?? {}), ...data, savedAt: new Date().toISOString() });
     toast("Dnevnik sačuvan");
-  }));
-  $main.querySelectorAll("form[data-challenge]").forEach((f) => f.addEventListener("submit", (e) => {
+  }); });
+  $main.querySelectorAll("form[data-challenge]").forEach((f) => { if (f.dataset.bound) return; f.dataset.bound = 1; f.addEventListener("submit", (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(f).entries());
     store.set("challenge", `${date}|${f.dataset.challenge}`, { ...data, date, ch: f.dataset.challenge, savedAt: new Date().toISOString() });
     toast("Izazov zabeležen");
-  }));
+  }); });
 }
 
-function renderTask(date, t, i, journal) {
-  const done = isDone(date, t, i);
-  const diff = `<span class="diff" title="težina ${t.diff}/5">${[1, 2, 3, 4, 5].map((n) => `<b class="${n <= t.diff ? "on" : ""}"></b>`).join("")}</span>`;
-  let extra = "";
+function renderExtra(date, t, journal) {
   if (t.id === "R1") {
     const j = journal;
-    extra = `<form class="form" data-journal>
+    return `<form class="form" data-journal>
       <label class="field"><span>Try & Apply: šta sam uradio (ime snimka)</span><input name="try" value="${esc(j.try)}"></label>
       <div class="grid3">
         <label class="field"><span>Vocal 0–10</span><input name="vocal" type="number" min="0" max="10" inputmode="numeric" value="${esc(j.vocal)}"></label>
@@ -161,9 +193,10 @@ function renderTask(date, t, i, journal) {
       <label class="field row" style="grid-template-columns:auto 1fr"><input type="checkbox" name="comfort" value="1" style="width:auto" ${j.comfort ? "checked" : ""}> <span>Bio sam van zone komfora danas</span></label>
       <div class="actions"><button class="btn primary sm" type="submit">Sačuvaj</button></div>
     </form>`;
-  } else if (t.slot === "izazov" && t.id.startsWith("CH")) {
+  }
+  if (t.slot === "izazov" && t.id.startsWith("CH")) {
     const c = store.get("challenge", `${date}|${t.id}`) ?? {};
-    extra = `<form class="form" data-challenge="${t.id}">
+    return `<form class="form" data-challenge="${t.id}">
       <label class="field"><span>Pre: predviđanje</span><input name="prediction" placeholder="misliće da sam čudan…" value="${esc(c.prediction)}"></label>
       <div class="grid2">
         <label class="field"><span>Stvarnost vs predviđanje (1 gore – 10 bolje)</span><input name="score" type="number" min="1" max="10" inputmode="numeric" value="${esc(c.score)}"></label>
@@ -173,18 +206,42 @@ function renderTask(date, t, i, journal) {
       <div class="actions"><button class="btn primary sm" type="submit">Zabeleži</button></div>
     </form>`;
   }
+  return "";
+}
+
+function renderDetail(date, journal) {
+  if (!sel) return `<div class="card empty"><i class="ph ph-cursor-click"></i>Izaberi zadatak sa liste.</div>`;
+  const t = byDate.get(sel.date).tasks[sel.i];
+  const done = isDone(date, t, sel.i);
   const link = (t.how.match(/youtube\.com\/[^\s|)]+/) || [])[0];
-  return `<div class="task ${done ? "done" : ""}">
+  return `<div class="card">
+    <div class="d-kicker"><i class="ph ${SLOT[t.slot].icon}"></i>${SLOT[t.slot].label}${t.min ? ` · ${t.min} min` : ""} · težina ${t.diff}/5</div>
+    <h2>${esc(t.name)}</h2>
+    <div class="how">${esc(t.how)}${link ? ` <a href="https://${esc(link)}" target="_blank" rel="noopener">Otvori video <i class="ph ph-arrow-square-out"></i></a>` : ""}</div>
+    ${t.metric ? `<div class="metric"><i class="ph ph-ruler"></i><span>Merilo: ${esc(t.metric)}</span></div>` : ""}
+    ${t.src ? `<p class="faint small" style="margin-top:10px">Izvor: research/${esc(t.src)}</p>` : ""}
+    <div class="actions"><button class="btn ${done ? "" : "primary"}" data-toggle="${date}|${sel.i}"><i class="ph ph-check"></i>${done ? "Vrati na neurađeno" : "Označi kao urađeno"}</button></div>
+    ${renderExtra(date, t, journal)}
+  </div>`;
+}
+
+function renderTask(date, t, i, journal, num) {
+  const done = isDone(date, t, i);
+  const isSel = sel && sel.date === date && sel.i === i;
+  const fire = t.slot === "izazov" && t.id.startsWith("CH");
+  const diff = `<span class="diff" title="težina ${t.diff}/5">${[1, 2, 3, 4, 5].map((n) => `<b class="${n <= t.diff ? "on" : ""}"></b>`).join("")}</span>`;
+  const link = (t.how.match(/youtube\.com\/[^\s|)]+/) || [])[0];
+  return `<div class="task ${done ? "done" : ""} ${isSel ? "sel" : ""} ${fire ? "fire" : ""}" data-i="${i}">
     <button class="check" data-toggle="${date}|${i}" aria-label="${done ? "Označi kao neurađeno" : "Označi kao urađeno"}" aria-pressed="${done}"><i class="ph ph-check"></i></button>
-    <div class="t-main" data-expand>
-      <div class="t-name">${esc(t.name)}</div>
-      <div class="t-meta">${diff}${t.src ? `<span>${esc(t.src)}</span>` : ""}</div>
+    <div class="t-main" data-select="${i}">
+      <div class="t-name">${num ? `<span class="faint">${num})</span> ` : ""}${esc(t.name)}</div>
+      <div class="t-meta">${diff}${fire ? `<span>${esc(t.how.slice(0, 70))}${t.how.length > 70 ? "…" : ""}</span>` : t.src ? `<span>${esc(t.src)}</span>` : ""}</div>
     </div>
     <div class="t-min">${t.min ? t.min + "′" : ""}</div>
     <div class="t-body" hidden>
-      <div class="how">${esc(t.how)}${link ? ` <a href="https://${esc(link)}" target="_blank" rel="noopener">Otvori video <i class="ph ph-arrow-square-out"></i></a>` : ""}</div>
+      <div class="how" style="color:var(--text)">${esc(t.how)}${link ? ` <a href="https://${esc(link)}" target="_blank" rel="noopener">Otvori video <i class="ph ph-arrow-square-out"></i></a>` : ""}</div>
       ${t.metric ? `<div class="metric"><i class="ph ph-ruler"></i><span>Merilo: ${esc(t.metric)}</span></div>` : ""}
-      ${extra}
+      ${renderExtra(date, t, journal)}
     </div>
   </div>`;
 }
@@ -192,7 +249,7 @@ function renderTask(date, t, i, journal) {
 function viewCalendar() {
   const today = isoToday();
   const months = [[2026, 9], [2026, 10], [2026, 11]];
-  $main.innerHTML = `<div class="pagehead"><div class="kicker">15. oktobar – 31. decembar 2026</div><h1>Kalendar</h1></div>` +
+  $main.innerHTML = `<div class="pagehead"><div class="kicker">15. oktobar – 31. decembar 2026</div><h1>Kalendar</h1></div><div class="months">` +
     months.map(([y, m]) => {
       const first = new Date(y, m, 1); const lead = (first.getDay() + 6) % 7; const n = new Date(y, m + 1, 0).getDate();
       let cells = "";
@@ -206,7 +263,7 @@ function viewCalendar() {
         cells += `<a class="${cls}" href="#/dan/${iso}" style="--o:${(st.pct / 100).toFixed(2)}" title="${st.nd}/${st.n}"><span class="pct"></span><span class="n">${d}</span></a>`;
       }
       return `<section class="month"><h2>${MONTHS[m][0].toUpperCase() + MONTHS[m].slice(1)}</h2><div class="cal">${["P", "U", "S", "Č", "P", "S", "N"].map((x) => `<div class="dow">${x}</div>`).join("")}${cells}</div></section>`;
-    }).join("") +
+    }).join("") + `</div>` +
     `<div class="legend"><span><i style="background:var(--ok)"></i>sve urađeno</span><span><i style="background:var(--ok-soft)"></i>delimično</span><span><i style="background:var(--accent)"></i>checkpoint</span></div>`;
 }
 
@@ -403,7 +460,7 @@ function viewSettings() {
     <section class="card stack"><h2>Datumi takmičenja</h2><p class="muted small">Kad saznaš, upiši. Na taj dan Danas prikazuje ritual, a nedelje W6/W9 treba pomeriti u planu.</p>
       <form class="form" id="dates"><div class="grid2"><label class="field"><span>Polufinale</span><input type="date" name="polufinale" value="${esc(s.polufinale)}"></label><label class="field"><span>Finale</span><input type="date" name="finale" value="${esc(s.finale)}"></label></div><div class="actions"><button class="btn primary sm" type="submit">Sačuvaj</button></div></form>
     </section>
-    <section class="card stack"><h2>Izgled</h2><div class="row wrap"><button class="btn sm" data-theme="">Automatski</button><button class="btn sm" data-theme="light">Svetlo</button><button class="btn sm" data-theme="dark">Tamno</button></div></section>
+    <section class="card stack"><h2>Izgled</h2><div class="row wrap"><button class="btn sm" data-theme="">Tamno</button><button class="btn sm" data-theme="light">Svetlo</button></div></section>
     <section class="card stack"><h2>Podaci</h2><div class="row wrap"><button class="btn sm" id="export">Izvezi JSON</button><label class="btn sm" for="import">Uvezi JSON</label><input id="import" type="file" accept="application/json" hidden><button class="btn sm" id="reset" style="color:var(--warn)">Obriši lokalno</button></div></section>
   </div>`;
   document.getElementById("dates").addEventListener("submit", (e) => { e.preventDefault(); const d = Object.fromEntries(new FormData(e.target).entries()); store.set("settings", "main", { ...s, ...d }); toast("Sačuvano"); });
