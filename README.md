@@ -1,6 +1,8 @@
-# Komunikacija · plan do Nove godine
+# Komunikacija · kurs do Nove godine
 
-Dnevni plan vežbanja komunikacije (15. 10. – 31. 12. 2026): glas, jasnoća, small talk, pitch za InnovNation.
+Kurs komunikacije u 12 nedelja (15. 10. – 31. 12. 2026): glas, jasnoća, small talk, pitch za InnovNation.
+Struktura: 3 meseca × 4 nedelje. Nedelja se otključava kad dođe njen ponedeljak **i** kad je prethodna bar 80 % urađena (`UNLOCK_PCT` u `app.js`).
+Strane: Kurs (mapa, % završeno) · Danas / Dan (lekcija) · Nedelja · Izazovi (nivoi se otključavaju sa nedeljama) · O planu · Podešavanja · Vežbe (u meniju Više).
 Radi kao web aplikacija na iPhone-u (Dodaj na početni ekran) i na Macu. Bez build koraka.
 
 ## Struktura
@@ -23,8 +25,3 @@ python3 -m http.server 8765 --directory .
 2. Authentication → Providers → Email: uključeno (može bez potvrde emaila).
 3. Upiši URL i anon ključ u `config.js`.
 4. U aplikaciji: Podešavanja → Napravi nalog → Prijavi se (jednom po uređaju).
-
-## Fotografije za hero (luk)
-
-Luk na strani Danas trenutno crta CSS (mikrofon pod svetlom). Kad budu fotografije: `images/W0.jpg … W11.jpg` (4:5, ~900×1125),
-pa u `app.js` u `viewToday` vratiti `<img src="images/${w.id}.jpg">` unutar `.arch`.

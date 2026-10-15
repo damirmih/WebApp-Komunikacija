@@ -1,10 +1,10 @@
 {
-  "name": "Komunikacija · plan do Nove godine",
+  "name": "Komunikacija · kurs do Nove godine",
   "short_name": "Komunikacija",
-  "start_url": "./#/danas",
+  "start_url": "./#/kurs",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#0b0b0c",
+  "theme_color": "#0b0b0c",
   "lang": "sr",
   "icons": [
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" },
